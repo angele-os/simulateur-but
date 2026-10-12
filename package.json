@@ -1,0 +1,23 @@
+{
+  "name": "simulateur-but",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "test": "node --test \"tests/**/*.test.js\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/angele-os/simulateur-but.git"
+  },
+  "keywords": [],
+  "author": "Ange Bonkoski",
+  "license": "MIT",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/angele-os/simulateur-but/issues"
+  },
+  "homepage": "https://github.com/angele-os/simulateur-but#readme",
+  "dependencies": {
+    "pdfjs-dist": "^6.4.299"
+  }
+}

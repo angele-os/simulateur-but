@@ -1,0 +1,140 @@
+# Format des PDF et règles de calcul
+
+Ces règles ont été établies à partir des vrais documents de l'IUT de Metz (BUT Informatique) le 12/10/2026 :
+- les tableaux de coefficients du BUT1, du BUT2 et du BUT3, en parcours A et B ;
+- deux relevés « Détail des notes ».
+
+**Les vrais fichiers ne sont pas dans le dépôt**, car ils contiennent des données personnelles. Tous les nombres d'exemple ci-dessous sont **inventés**.
+
+---
+
+## 1. Lire un PDF
+
+- **Ce sont des PDF texte, pas des scans.** `page.getTextContent()` de pdf.js suffit, sans OCR. Chaque élément donne :
+  - son texte (`str`) ;
+  - sa position horizontale (`transform[4]`) et verticale (`transform[5]`) ;
+  - sa taille, qu'on lit avec `transform[0]` ou `height`.
+- **L'axe vertical de pdf.js part du bas de la page.** Pour lire de haut en bas, il faut trier par y **décroissant**.
+- **Reconstituer les lignes** : on regroupe les éléments dont les y diffèrent de moins de 2 points, puis on les trie par x.
+- **Ne jamais se fier au texte brut concaténé.** Les cases vides disparaissent et des champs se collent, comme `coef 3 103JXH2M02E1`, où la note 10 touche le code suivant. **Seules les positions sont fiables.**
+- **Les documents font plusieurs pages.** Il faut enchaîner les lignes de toutes les pages.
+
+---
+
+## 2. Tableau des coefficients
+
+### Mises en page rencontrées
+| Document | Colonnes | Particularités |
+|---|---|---|
+| BUT1 | `Numéro SAE / Ressource` · `Intitulé` · `UE1.1 … UE1.6` | Le code est répété : `R1.01 R1.01 Initiation…` |
+| BUT2 | Comme le BUT1, avec un bandeau « IUT concerné » | `R4.08 R4.B.08 Virtualisation` : le 2ᵉ code, plus précis, est celui du relevé |
+| BUT3 | `Nature` · `Numéro` · `Intitulé` · `UE5.1 UE5.3 UE5.6` | Il y a une colonne Nature (`SAE`, `RSC`) et une ligne ECTS (`10 10 10`) **au-dessus** de l'en-tête. On trouve aussi `SAE SAE 5.A.01 SAE5.B.01 …` |
+
+Chaque PDF contient **deux semestres**, et chacun a sa propre ligne d'en-tête.
+
+### Algorithme
+1. **Trouver la ligne d'en-tête du semestre.** Ce sont les éléments du type `^UE\d\.\d$`. On mémorise le **centre horizontal** de chacun.
+   - Le nombre d'UE varie : 6 en BUT1 et BUT2, **3 en BUT3**.
+   - En parcours DACS, le BUT3 a les UE 5.1, 5.3, 5.6, puis 6.1, 6.3, 6.6.
+   - Il ne faut jamais supposer 6 UE.
+2. **Trouver les lignes de données.** Elles contiennent un code :
+   - ressources : `R1.01`, `R4.B.08`, `R5.B.12`… ;
+   - SAE : `S3.01`, `SAE5.B.01`, `S6.A.01`… ;
+   - portfolio : `S3.PF`, `PORTFOLIO` ;
+   - stage : `S4.MP`, `S6.STAGE`.
+
+   Quand une ligne contient plusieurs codes, on garde **le dernier avant l'intitulé**. C'est le plus précis, et c'est celui du relevé de notes.
+3. **Ranger chaque nombre de la ligne dans la colonne UE dont le centre est le plus proche horizontalement.** Exemple inventé : `R9.01 Initiation 30 12`, avec 30 sous `UE9.1` et 12 sous `UE9.4`.
+4. **Le type vient des lignes de section** : « Pôle SAE » pour les SAE, « Pôle Ressources » pour les ressources.
+5. **Les lignes « TOTAL SAE », « Total Ressource(s) » et « TOTAL GENERAL » servent de contrôle.** Pour chaque UE, la somme des coefficients lus doit être égale à ces totaux, et le total général vaut 100. **Sinon, on signale l'erreur** au lieu d'importer en silence.
+6. **On ignore** :
+   - le bandeau « IUT concerné » ;
+   - « Parcours … » et « Non évalué ce semestre » ;
+   - la ligne ECTS, c'est-à-dire tout nombre qui n'est pas sur une ligne portant un code.
+7. **Le portfolio peut n'avoir aucun coefficient**, par exemple aux semestres 1, 3 et 5. Il ne compte alors pas.
+8. **Le poids des SAE varie selon le semestre** : 40, 50 ou 60 sur 100. On ne le code jamais en dur, on le lit dans le tableau.
+
+---
+
+## 3. Relevé « Détail des notes » (ENT)
+
+### À ignorer complètement
+- **L'en-tête** : nom, « Dossier », « NNE », « Courriel », « Date d'édition ». On ne le garde pas, on ne l'affiche pas, on ne le journalise pas.
+- **Le filigrane « NON CERTIFIÉ »** : ce sont de grosses lettres grises d'environ 47 à 65 pt, éparpillées sur les lignes. **On filtre tout élément dont la taille dépasse 20 pt, avant tout le reste.** Sinon, des lettres se collent aux libellés et aux notes (`F17.833`, `missioOns`) ou font disparaître des notes.
+- Les lignes SENSE, « Certificat SENSE » et « Se saisir des Enjeux… ».
+- La colonne « Rang » (par exemple `14/30`).
+
+### Colonnes
+`Code` · `Libellé` · `Session 1` (la note) · `Résultat` (ADM, V, V/COR) · `Rang`.
+
+On repère leurs positions grâce à la ligne d'en-tête « Code Libellé Session 1 Résultat Rang ». Une colonne « Session 2 » pourrait apparaître : si c'est le cas, on la signale.
+
+Les codes, comme `3JXH2M01E1`, sont des identifiants internes. On ne s'en sert que comme identifiant, sans jamais déduire quoi que ce soit de leur contenu.
+
+### Hiérarchie : on la lit grâce au **retrait du libellé**
+Plus un libellé commence à droite, plus il est profond dans l'arbre. Le **parent** d'une ligne est la ligne précédente dont le retrait est plus petit. Pour classer les retraits, il faut comparer leurs valeurs entre elles, pas utiliser de valeurs absolues.
+
+Les niveaux observés, du plus à gauche au plus à droite :
+1. compétences annuelles, semestre ;
+2. UE, malus ;
+3. pôles ;
+4. ressource, SAE, portfolio, stage ;
+5. évaluation, ou « matière » (par exemple `Mati 1 Anglais`) ;
+6. évaluation d'une matière, ou évaluation de SAE du S3.
+
+### Types de lignes, reconnus par le libellé
+| Libellé (exemple) | Signification |
+|---|---|
+| `C1 Réaliser un développement… Niveau 2` | Moyenne **officielle** d'une compétence sur l'année |
+| `SEMESTRE 3 BUT Informatique` | Début d'un semestre |
+| `UE3.1 Aller jusqu'à…` | Moyenne **officielle** de l'UE, avec son résultat |
+| `Pôle SAE UE 3.1` / `Pôle Ressource UE 3.1` | Moyennes **officielles** des pôles |
+| `R3.01 Développement web`, `R4.B.09 …` | Ressource, avec sa moyenne officielle |
+| `SAE 3.01 …`, `Portfolio`, `Stage` | Parties du pôle SAE |
+| `… - coef 2`, `… - Coef 3` | Évaluation. Le coefficient est **dans le libellé** : on le cherche sans tenir compte des majuscules |
+| `… - Coef ??` | Coefficient inconnu : **on le demande à l'utilisateur**, sans le deviner |
+| `Mati 1 Anglais` | Niveau intermédiaire, entre une ressource (Langues) et ses évaluations |
+| `Malus absences injustifiées …` | Valeur à retrancher (par exemple `0.05`). Elle peut être vide ou à 0 |
+
+### Pièges
+- **Une ressource n'apparaît qu'une seule fois**, sous le pôle de la **première** UE où elle compte. Pour savoir dans quelles autres UE elle compte, et avec quel poids, il faut le **tableau des coefficients**.
+- **Au S3, les évaluations de la SAE sont rangées par UE** dans leur libellé : `Sae UE 3.2 : MVP - Coef 2`. On trouve aussi des variantes comme `UE 3.03` (qui veut dire 3.3) ou `UE 3.6 DACS : …`.
+- **Au S4 et au S6, le pôle SAE est formé de parties** : SAE, portfolio et stage. Elles sont pondérées par le tableau (`S4.01`, `S4.PF`, `S4.MP`).
+- **Une note vide veut dire « pas encore notée ».** On garde l'évaluation, mais elle ne compte pas. En début d'année, le relevé ne contient que la structure, sans aucune note.
+
+---
+
+## 4. Règles de calcul
+Ces règles ont été vérifiées sur un relevé réel : **23 moyennes officielles sur 24** sont retrouvées exactement.
+
+1. **Moyenne d'une ressource** (ou d'une matière) = Σ(note × coef de l'évaluation) / Σ coef, sur les évaluations notées seulement.
+2. **Pôle Ressources d'une UE** = Σ(moyenne de la ressource × coef du tableau pour cette UE) / Σ coef. On ne compte que les ressources qui ont une moyenne.
+3. **Pôle SAE d'une UE** :
+   - au S3, c'est la moyenne pondérée des évaluations SAE de **cette** UE, avec les coefficients des libellés ;
+   - au S4 et au S6, c'est la moyenne des parties (SAE, portfolio, stage), pondérée par les coefficients du tableau.
+4. **Moyenne de l'UE** = (total SAE × pôle SAE + total ressources × pôle ressources) / 100, **moins le malus** du semestre. Le malus s'applique à chaque UE du semestre.
+5. **Si un pôle n'a encore aucune note**, on affiche l'UE comme **provisoire**, calculée avec ce qui existe.
+6. **Arrondi** : chaque moyenne intermédiaire est **arrondie au millième, au plus proche**, avant d'être réutilisée. Par exemple, 12,2055 donne 12,206.
+   - ⚠️ En JavaScript, `12.2055` est stocké en réalité `12.20549999…`. Un arrondi naïf donne donc 12,205.
+   - Il faut arrondir avec une petite marge, ou calculer en millièmes entiers. **Ce cas doit avoir son test.**
+7. **Compétence (année)** = moyenne simple des 2 UE de même numéro de l'année. Par exemple, UE3.1 et UE4.1 donnent C1.
+8. **Écart observé** : sur une UE, le pôle SAE officiel ne correspond pas aux coefficients écrits dans les libellés. Il y a environ 0,9 point d'écart. Le coefficient affiché n'est donc **pas toujours** celui utilisé par l'IUT. L'app doit :
+   - afficher **« calculé » et « officiel » côte à côte** quand le relevé fournit l'officiel ;
+   - signaler les écarts supérieurs à 0,01 ;
+   - laisser modifier les coefficients.
+9. **Règles de validation** (seuils, compensation) : elles sont à reprendre du règlement des études de l'IUT. Tant qu'elles ne sont pas fournies, l'app n'affiche que les moyennes et un repère « ≥ 10 », **sans verdict** (pas de « admis » ni « ajourné »).
+
+### Note à viser
+Pour une UE et une évaluation pas encore notée, on calcule la **note minimale** à obtenir pour que l'UE atteigne 10 (ou une cible choisie). Les cas à gérer :
+- la cible est déjà atteinte ;
+- la cible est impossible, même avec 20 ;
+- plusieurs évaluations restent à passer : on suppose alors la même note partout.
+
+---
+
+## 5. Données de test
+Les fixtures (`tests/fixtures/*.json`) sont des listes d'éléments `{ texte, x, y, taille, page }`, **inventés**, qui imitent ce que renvoie pdf.js. Elles doivent couvrir :
+- les lettres du filigrane, les champs collés, les deux mises en page de tableau (BUT1-2 et BUT3), un document sur deux pages ;
+- un `Coef ??`, une note vide, un malus, le niveau « matière » (Langues) ;
+- un tableau dont les totaux ne tombent pas juste, pour vérifier que l'erreur est signalée ;
+- un arrondi piège (x,xxx5).
