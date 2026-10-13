@@ -37,6 +37,10 @@ const NATURES = new Map([
   ['RSC', 'ressource'],
 ]);
 
+// Préfixe de nature (colonne « Nature », voir NATURES) devant une ligne de
+// total, en BUT3 DACS : « RSC Total Ressources : 50 50 50 ».
+const MOTIF_PREFIXE_NATURE = /^(?:SAE|RSC)\s+/;
+
 // Lignes de total : leur libellé, et la clé où l'on range leurs valeurs.
 const LIGNES_TOTAL = [
   { motif: /^total\s+sae\b/i, cle: 'sae', nom: '« TOTAL SAE »' },
@@ -148,7 +152,10 @@ export function importerCoefficients(elements) {
     }
 
     // 5. Ligne de total : on garde ses valeurs pour le contrôle final.
-    const total = LIGNES_TOTAL.find(({ motif }) => motif.test(libelleLigne));
+    //    On retire d'abord un éventuel préfixe de nature : « RSC Total
+    //    Ressources : » devient « Total Ressources : ».
+    const libelleTotal = libelleLigne.replace(MOTIF_PREFIXE_NATURE, '');
+    const total = LIGNES_TOTAL.find(({ motif }) => motif.test(libelleTotal));
     if (total) {
       const nombres = ligne.elements.filter((element) => MOTIF_NOMBRE.test(element.texte));
       semestre.totaux[total.cle] = rangerNombres(nombres, ligne, semestre, rapport, `Ligne ${total.nom}`);

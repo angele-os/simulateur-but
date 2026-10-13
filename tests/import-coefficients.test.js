@@ -279,6 +279,36 @@ describe('mise en page BUT3 (fixture inventée : 3 UE, colonne Nature, ligne ECT
   });
 });
 
+describe('BUT3 DACS : totaux précédés de la colonne Nature (fixture inventée)', () => {
+  const resultat = importerCoefficients(chargerFixture('coefficients-but3-dacs.json'));
+
+  test('« RSC Total Ressources : » et « RSC TOTAL GENERAL : » sont reconnus : aucune erreur', () => {
+    assert.deepEqual(resultat.rapport.erreurs, []);
+  });
+
+  test('ces lignes ne sont plus ignorées comme des titres', () => {
+    assert.ok(!resultat.rapport.ignore.some((i) => /total/i.test(i.texte)));
+  });
+
+  test('les deux semestres sont lus, avec les totaux préfixés (S5) et normaux (S6)', () => {
+    assert.deepEqual(
+      resultat.semestres.map((s) => s.ues.map((ue) => [ue.code, ue.poidsSae, ue.poidsRessources])),
+      [
+        [
+          ['UE5.1', 50, 50],
+          ['UE5.3', 50, 50],
+          ['UE5.6', 50, 50],
+        ],
+        [
+          ['UE6.1', 60, 40],
+          ['UE6.3', 60, 40],
+          ['UE6.6', 60, 40],
+        ],
+      ],
+    );
+  });
+});
+
 describe('contrôle des totaux (fixture inventée aux totaux faux)', () => {
   const resultat = importerCoefficients(chargerFixture('coefficients-totaux-faux.json'));
 
@@ -378,6 +408,14 @@ describe('cas particuliers (tableaux construits dans le test)', () => {
       ...ligne(772, ['R9.01', 'Ressource inventée'], { 'UE9.1': '7,5' }),
     ]);
     assert.deepEqual(resultat.rapport.lu[0].coefs, { 'UE9.1': 7.5 });
+  });
+
+  test('préfixe de nature « SAE » devant « TOTAL SAE » : la ligne de total est reconnue', () => {
+    const elements = tableauMinimal()
+      .filter((e) => e.texte !== 'TOTAL SAE')
+      .concat(element('SAE', 40, 730), element('TOTAL SAE :', 100, 730));
+    const resultat = importerCoefficients(elements);
+    assert.deepEqual(resultat.rapport.erreurs, []);
   });
 
   test('ligne de total absente : on signale que le contrôle est impossible', () => {

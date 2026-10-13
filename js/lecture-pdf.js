@@ -43,6 +43,41 @@ export class ErreurLecturePdf extends Error {
 }
 
 /**
+ * Position et taille d'un élément texte sur la page AFFICHÉE.
+ *
+ * pdf.js donne la position d'un texte dans le repère du FICHIER, c'est-à-dire
+ * AVANT la rotation de la page. Or le relevé « Détail des notes » est tourné
+ * de 90° : sans ce calcul, x et y seraient échangés et aucune ligne ne
+ * serait trouvée.
+ *
+ * Fonction pure : elle ne lit que ses paramètres (pdfjs.Util.transform n'est
+ * qu'un calcul). Elle est testée dans tests/lecture-pdf.test.js.
+ *
+ * @param {number[]} transform matrice de l'élément [a, b, c, d, x, y], dans le repère du fichier
+ * @param {{ transform: number[], height: number }} viewport page.getViewport({ scale: 1 })
+ * @returns {{ x: number, y: number, taille: number }}
+ *   x depuis la gauche et y depuis le BAS de la page affichée, taille en points
+ */
+export function positionAffichee(transform, viewport) {
+  // 1. Une « matrice » [a, b, c, d, e, f] décrit comment tourner, étirer et
+  //    déplacer un point. Celle du viewport fait passer du repère du fichier
+  //    au repère affiché (rotation comprise). On l'enchaîne avec celle du
+  //    texte pour obtenir la matrice du texte sur la page affichée.
+  const m = pdfjs.Util.transform(viewport.transform, transform);
+
+  return {
+    // 2. Position horizontale, depuis la gauche de la page affichée.
+    x: m[4],
+    // 3. Le viewport compte y depuis le HAUT (comme un écran). On le
+    //    recompte depuis le BAS, comme le reste de l'app (FORMAT-PDF.md).
+    y: viewport.height - m[5],
+    // 4. Taille = longueur du vecteur (c, d) : la hauteur des lettres, même
+    //    pour un texte penché (le filigrane est souvent en diagonale).
+    taille: Math.hypot(m[2], m[3]),
+  };
+}
+
+/**
  * Lit toutes les pages d'un PDF et renvoie ses éléments texte.
  *
  * @param {File} fichier fichier choisi par l'utilisateur (<input type="file">)
@@ -146,29 +181,27 @@ async function extraireElements(tache) {
     const page = await documentPdf.getPage(numero);
     const contenu = await page.getTextContent();
 
+    // 3. Le repère de la page AFFICHÉE, rotation comprise. À l'échelle 1,
+    //    une unité vaut un point, comme dans le fichier.
+    const viewport = page.getViewport({ scale: 1 });
+
     for (const element of contenu.items) {
-      // 3. On ne garde que les vrais morceaux de texte, non vides.
+      // 4. On ne garde que les vrais morceaux de texte, non vides.
       //    (pdf.js peut aussi renvoyer des marqueurs sans texte.)
       if (typeof element.str !== 'string' || element.str.trim() === '') {
         continue;
       }
 
-      // 4. transform = [a, b, c, d, x, y] : une « matrice » qui décrit où et
-      //    comment le texte est dessiné.
-      //    - x = transform[4] : position horizontale, depuis la gauche ;
-      //    - y = transform[5] : position verticale, depuis le BAS de la page ;
-      //    - taille = longueur du vecteur (c, d) : c'est la hauteur du texte,
-      //      même s'il est penché (le filigrane est souvent en diagonale,
-      //      et transform[0] seul y donnerait une taille trop petite).
-      const [, , c, d, x, y] = element.transform;
-      const taille = Math.hypot(c, d);
+      // 5. Position et taille sur la page affichée (voir positionAffichee).
+      const { x, y, taille } = positionAffichee(element.transform, viewport);
 
-      // 5. On écarte le filigrane AVANT tout le reste.
+      // 6. On écarte le filigrane AVANT tout le reste.
       if (taille > TAILLE_MAX_TEXTE) {
         continue;
       }
 
-      // 6. largeur = longueur du texte sur la page, en points. Elle sert à
+      // 7. largeur = longueur du texte, en points, mesurée le long de la
+      //    ligne : la rotation de la page ne la change pas. Elle sert à
       //    calculer le centre d'un élément (x + largeur / 2), pour le ranger
       //    dans la bonne colonne d'un tableau.
       elements.push({
@@ -181,7 +214,7 @@ async function extraireElements(tache) {
       });
     }
 
-    // 7. On libère la mémoire de la page lue.
+    // 8. On libère la mémoire de la page lue.
     page.cleanup();
   }
 

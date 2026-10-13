@@ -1,0 +1,59 @@
+{
+  "origine": "Capturé avec pdf.js (getViewport et getTextContent) sur un petit PDF INVENTÉ, sans rotation puis tourné de 90°.",
+  "pages": [
+    {
+      "rotation": 0,
+      "viewport": {"transform":[1,0,0,-1,0,842],"width":595,"height":842},
+      "items": [
+        {"str":"Code","transform":[9,0,0,9,40,500],"width":21.51},
+        {"str":"Libellé","transform":[9,0,0,9,100,500],"width":26.01},
+        {"str":"Session 1","transform":[9,0,0,9,380,500],"width":39.519},
+        {"str":"Résultat","transform":[9,0,0,9,445,500],"width":33.012},
+        {"str":"Rang","transform":[9,0,0,9,505,500],"width":21.51},
+        {"str":"9INVS5","transform":[9,0,0,9,40,486],"width":31.014},
+        {"str":"SEMESTRE 5 BUT Informatique","transform":[9,0,0,9,100,486],"width":130.041},
+        {"str":"9INVU51","transform":[9,0,0,9,40,473],"width":36.513},
+        {"str":"UE5.1 Réaliser (intitulé inventé)","transform":[9,0,0,9,110,473],"width":126.54},
+        {"str":"12.5","transform":[9,0,0,9,395,473],"width":17.514},
+        {"str":"ADM","transform":[9,0,0,9,458,473],"width":19.998},
+        {"str":"9INVU51R","transform":[9,0,0,9,40,460],"width":43.011},
+        {"str":"Pôle Ressource UE 5.1","transform":[9,0,0,9,120,460],"width":93.537},
+        {"str":"12.5","transform":[9,0,0,9,395,460],"width":17.514},
+        {"str":"9INV5R01","transform":[9,0,0,9,40,447],"width":41.517},
+        {"str":"R5.01 Ressource inventée","transform":[9,0,0,9,130,447],"width":106.047},
+        {"str":"12.5","transform":[9,0,0,9,395,447],"width":17.514},
+        {"str":"9INV5R01E1","transform":[9,0,0,9,40,434],"width":52.524},
+        {"str":"Contrôle inventé - coef 1","transform":[9,0,0,9,140,434],"width":98.046},
+        {"str":"12.5","transform":[9,0,0,9,395,434],"width":17.514},
+        {"str":"N","transform":[41.0122,41.0122,-41.0122,41.0122,300,440],"width":41.876}
+      ]
+    },
+    {
+      "rotation": 90,
+      "viewport": {"transform":[0,1,1,0,0,0],"width":842,"height":595},
+      "items": [
+        {"str":"Code","transform":[0,9,-9,0,95,40],"width":21.51},
+        {"str":"Libellé","transform":[0,9,-9,0,95,100],"width":26.01},
+        {"str":"Session 1","transform":[0,9,-9,0,95,380],"width":39.519},
+        {"str":"Résultat","transform":[0,9,-9,0,95,445],"width":33.012},
+        {"str":"Rang","transform":[0,9,-9,0,95,505],"width":21.51},
+        {"str":"9INVS5","transform":[0,9,-9,0,109,40],"width":31.014},
+        {"str":"SEMESTRE 5 BUT Informatique","transform":[0,9,-9,0,109,100],"width":130.041},
+        {"str":"9INVU51","transform":[0,9,-9,0,122,40],"width":36.513},
+        {"str":"UE5.1 Réaliser (intitulé inventé)","transform":[0,9,-9,0,122,110],"width":126.54},
+        {"str":"12.5","transform":[0,9,-9,0,122,395],"width":17.514},
+        {"str":"ADM","transform":[0,9,-9,0,122,458],"width":19.998},
+        {"str":"9INVU51R","transform":[0,9,-9,0,135,40],"width":43.011},
+        {"str":"Pôle Ressource UE 5.1","transform":[0,9,-9,0,135,120],"width":93.537},
+        {"str":"12.5","transform":[0,9,-9,0,135,395],"width":17.514},
+        {"str":"9INV5R01","transform":[0,9,-9,0,148,40],"width":41.517},
+        {"str":"R5.01 Ressource inventée","transform":[0,9,-9,0,148,130],"width":106.047},
+        {"str":"12.5","transform":[0,9,-9,0,148,395],"width":17.514},
+        {"str":"9INV5R01E1","transform":[0,9,-9,0,161,40],"width":52.524},
+        {"str":"Contrôle inventé - coef 1","transform":[0,9,-9,0,161,140],"width":98.046},
+        {"str":"12.5","transform":[0,9,-9,0,161,395],"width":17.514},
+        {"str":"N","transform":[-41.0122,41.0122,-41.0122,-41.0122,155,300],"width":41.876}
+      ]
+    }
+  ]
+}

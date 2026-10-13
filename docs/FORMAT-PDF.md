@@ -4,6 +4,8 @@ Ces règles ont été établies à partir des vrais documents de l'IUT de Metz (
 - les tableaux de coefficients du BUT1, du BUT2 et du BUT3, en parcours A et B ;
 - deux relevés « Détail des notes ».
 
+Elles ont été **complétées le 13/10/2026**, après un test de l'app sur de vrais relevés : pages tournées, ressource sans évaluation détaillée, lignes doublées « FI », totaux préfixés en BUT3 DACS, messages inutiles du rapport.
+
 **Les vrais fichiers ne sont pas dans le dépôt**, car ils contiennent des données personnelles. Tous les nombres d'exemple ci-dessous sont **inventés**.
 
 ---
@@ -12,9 +14,15 @@ Ces règles ont été établies à partir des vrais documents de l'IUT de Metz (
 
 - **Ce sont des PDF texte, pas des scans.** `page.getTextContent()` de pdf.js suffit, sans OCR. Chaque élément donne :
   - son texte (`str`) ;
-  - sa position horizontale (`transform[4]`) et verticale (`transform[5]`) ;
-  - sa taille, qu'on lit avec `transform[0]` ou `height`.
-- **L'axe vertical de pdf.js part du bas de la page.** Pour lire de haut en bas, il faut trier par y **décroissant**.
+  - sa matrice `transform` = `[a, b, c, d, x, y]`, qui donne sa position et sa taille **dans le repère du fichier** ;
+  - sa largeur (`width`), mesurée le long de la ligne.
+- **Les pages peuvent être tournées : le relevé « Détail des notes » a une rotation de 90°.** pdf.js donne les positions **avant** la rotation. Lues telles quelles (`transform[4]`, `transform[5]`), x et y sont échangés : chaque titre de colonne se retrouve sur sa propre ligne, et **aucune ligne n'est trouvée**. Il faut calculer la position sur la page **affichée** :
+  - `viewport = page.getViewport({ scale: 1 })` ;
+  - `m = pdfjs.Util.transform(viewport.transform, element.transform)` ;
+  - `x = m[4]`, `y = viewport.height - m[5]` (y reste compté depuis le bas), `taille = Math.hypot(m[2], m[3])`.
+
+  C'est la fonction `positionAffichee` de `js/lecture-pdf.js`. La largeur (`width`) ne change pas avec la rotation. Exemple inventé : sur une page tournée de 90°, « Code » est en (95, 40) dans le fichier, mais s'affiche en (40, 500).
+- **L'axe vertical part du bas de la page.** Pour lire de haut en bas, il faut trier par y **décroissant**.
 - **Reconstituer les lignes** : on regroupe les éléments dont les y diffèrent de moins de 2 points, puis on les trie par x.
 - **Ne jamais se fier au texte brut concaténé.** Les cases vides disparaissent et des champs se collent, comme `coef 3 103JXH2M02E1`, où la note 10 touche le code suivant. **Seules les positions sont fiables.**
 - **Les documents font plusieurs pages.** Il faut enchaîner les lignes de toutes les pages.
@@ -47,6 +55,7 @@ Chaque PDF contient **deux semestres**, et chacun a sa propre ligne d'en-tête.
 3. **Ranger chaque nombre de la ligne dans la colonne UE dont le centre est le plus proche horizontalement.** Exemple inventé : `R9.01 Initiation 30 12`, avec 30 sous `UE9.1` et 12 sous `UE9.4`.
 4. **Le type vient des lignes de section** : « Pôle SAE » pour les SAE, « Pôle Ressources » pour les ressources.
 5. **Les lignes « TOTAL SAE », « Total Ressource(s) » et « TOTAL GENERAL » servent de contrôle.** Pour chaque UE, la somme des coefficients lus doit être égale à ces totaux, et le total général vaut 100. **Sinon, on signale l'erreur** au lieu d'importer en silence.
+   - **En BUT3 DACS, les totaux du S5 sont précédés de la colonne Nature** : `RSC Total Ressources : 50 50 50` et `RSC TOTAL GENERAL : 100 100 100`. On retire ce préfixe de nature (`SAE`, `RSC`) avant de chercher une ligne de total. Sinon, la ligne est prise pour un titre et le contrôle signale à tort un total « introuvable ».
 6. **On ignore** :
    - le bandeau « IUT concerné » ;
    - « Parcours … » et « Non évalué ce semestre » ;
@@ -63,11 +72,13 @@ Chaque PDF contient **deux semestres**, et chacun a sa propre ligne d'en-tête.
 - **Le filigrane « NON CERTIFIÉ »** : ce sont de grosses lettres grises d'environ 47 à 65 pt, éparpillées sur les lignes. **On filtre tout élément dont la taille dépasse 20 pt, avant tout le reste.** Sinon, des lettres se collent aux libellés et aux notes (`F17.833`, `missioOns`) ou font disparaître des notes.
 - Les lignes SENSE, « Certificat SENSE » et « Se saisir des Enjeux… ».
 - La colonne « Rang » (par exemple `14/30`).
+- **La ligne du diplôme**, par exemple `B2 - Informatique PT DACS (FI)` : ignorée **sans message**. Si elle est plus à gauche que les autres lignes, celles-ci sont « dessous » dans l'arbre : elles sont lues normalement.
+- **La légende du bas de page**, par exemple `ADM : Admis   AJ : Ajourné` : ce n'est **pas** une ligne SENSE, ni une ligne du tableau. On l'écarte comme un pied de page, **avant** de construire l'arbre. Sinon, rangée par son retrait, elle tombe sous la ligne précédente : une ligne SENSE, ou une ressource, dont elle devient une fausse évaluation.
 
 ### Colonnes
-`Code` · `Libellé` · `Session 1` (la note) · `Résultat` (ADM, V, V/COR) · `Rang`.
+`Code` · `Libellé` · `Session 1` (la note) · `Session 2` · `Résultat` (ADM, V, V/COR) · `Rang`.
 
-On repère leurs positions grâce à la ligne d'en-tête « Code Libellé Session 1 Résultat Rang ». Une colonne « Session 2 » pourrait apparaître : si c'est le cas, on la signale.
+On repère leurs positions grâce à la ligne d'en-tête « Code Libellé Session 1 Session 2 Résultat Rang ». **La colonne « Session 2 » est toujours présente**, le plus souvent vide. On ne la signale que si elle contient **au moins une note** : ces notes ne sont pas importées.
 
 Les codes, comme `3JXH2M01E1`, sont des identifiants internes. On ne s'en sert que comme identifiant, sans jamais déduire quoi que ce soit de leur contenu.
 
@@ -101,6 +112,11 @@ Les niveaux observés, du plus à gauche au plus à droite :
 - **Au S3, les évaluations de la SAE sont rangées par UE** dans leur libellé : `Sae UE 3.2 : MVP - Coef 2`. On trouve aussi des variantes comme `UE 3.03` (qui veut dire 3.3) ou `UE 3.6 DACS : …`.
 - **Au S4 et au S6, le pôle SAE est formé de parties** : SAE, portfolio et stage. Elles sont pondérées par le tableau (`S4.01`, `S4.PF`, `S4.MP`).
 - **Une note vide veut dire « pas encore notée ».** On garde l'évaluation, mais elle ne compte pas. En début d'année, le relevé ne contient que la structure, sans aucune note.
+- **Une ressource peut n'avoir aucune évaluation détaillée**, par exemple `R4.03 … 15` sans aucune ligne dessous. Sans évaluation, elle n'aurait pas de note et ne compterait pas. Si une ressource ou une partie SAE a une moyenne officielle mais **aucune évaluation** (matières comprises), on crée une évaluation **« Moyenne du relevé »** avec cette note et **coef 1**, et on le signale dans le rapport. Ce contrôle se fait à la fin de la lecture, après la fusion des lignes doublées.
+- **Au BUT3, une ressource peut être écrite sur deux lignes**, au même retrait : `R5.B.04 Programmation système` puis `R5.B.04 Programmation système FI`. C'est le même élément (même code) : on les **fusionne**.
+  - On réunit les évaluations des deux lignes.
+  - On prend la moyenne officielle de celle qui en a une. Si les deux en ont une, différente, on garde la première et on le signale.
+  - Il n'y a pas de message « apparaît deux fois ». Seul un libellé vraiment différent (pas seulement « … FI ») est signalé.
 
 ---
 
@@ -137,4 +153,9 @@ Les fixtures (`tests/fixtures/*.json`) sont des listes d'éléments `{ texte, x,
 - les lettres du filigrane, les champs collés, les deux mises en page de tableau (BUT1-2 et BUT3), un document sur deux pages ;
 - un `Coef ??`, une note vide, un malus, le niveau « matière » (Langues) ;
 - un tableau dont les totaux ne tombent pas juste, pour vérifier que l'erreur est signalée ;
-- un arrondi piège (x,xxx5).
+- un arrondi piège (x,xxx5) ;
+- une page tournée de 90° : `releve-tourne.json` contient ce que pdf.js renvoie (viewport et éléments bruts) pour un petit PDF inventé, sans rotation puis tourné ;
+- un relevé de BUT3 DACS (`releve-but3.json`) : lignes doublées « FI », ressource sans évaluation détaillée, colonne « Session 2 » vide, ligne du diplôme, légende du bas de page ;
+- un tableau de BUT3 DACS aux totaux préfixés `RSC` (`coefficients-but3-dacs.json`).
+
+La version de pdf.js copiée dans `vendor/` est faite pour les navigateurs : elle utilise `Uint8Array.prototype.toHex`, que Node 24 n'a pas. On ne peut donc pas lire un PDF entier dans les tests. On teste le calcul pur (`positionAffichee`) et les analyseurs, à partir de données capturées.

@@ -294,6 +294,75 @@ describe('données personnelles (non négociable)', () => {
   });
 });
 
+// ---------- Fixture : relevé inventé de BUT3 DACS (pièges vus sur un vrai relevé) ----------
+
+describe('relevé inventé de BUT3 DACS (pièges vus sur un vrai relevé)', () => {
+  const resultat = importerNotes(chargerFixture('releve-but3.json'));
+  const [s5] = resultat.semestres;
+
+  test('ressource sans évaluation détaillée : sa moyenne officielle devient une évaluation « Moyenne du relevé »', () => {
+    assert.deepEqual(trouver(s5, 'R5.B.06').evaluations, [
+      { libelle: 'Moyenne du relevé', note: 15, coef: 1, ue: null },
+    ]);
+    assert.ok(
+      messages(resultat).includes(
+        '« R5.B.06 » : aucune évaluation détaillée dans le relevé. Sa moyenne officielle (15) devient une évaluation « Moyenne du relevé », coef 1.',
+      ),
+    );
+  });
+
+  test('lignes doublées « FI » : un seul élément, avec les évaluations des deux lignes', () => {
+    // « R5.B.04 … » porte la moyenne officielle, « R5.B.04 … FI » les évaluations.
+    const lignes = s5.elements.filter((e) => e.code === 'R5.B.04');
+    assert.deepEqual(lignes, [
+      {
+        type: 'ressource',
+        code: 'R5.B.04',
+        libelle: 'Programmation système (inventée)',
+        ue: 'UE5.1',
+        officiel: { moyenne: 12.5, resultat: null },
+        evaluations: [
+          { libelle: 'TP - coef 1', note: 12.5, coef: 1, ue: null },
+          { libelle: 'Examen - coef 2', note: null, coef: 2, ue: null },
+        ],
+        matieres: [],
+      },
+    ]);
+    assert.ok(!messages(resultat).some((message) => message.includes('R5.B.04')));
+  });
+
+  test('colonne « Session 2 » présente mais vide : aucun message', () => {
+    assert.ok(!messages(resultat).some((message) => message.includes('Session 2')));
+  });
+
+  test('ligne du diplôme (« B2 - Informatique PT DACS (FI) ») : ignorée sans message, et tout ce qu’elle contient est lu', () => {
+    assert.ok(!messages(resultat).some((message) => message.includes('B2 - Informatique')));
+    // Elle est plus à gauche que tout le reste : C1 et le S5 sont « dessous ».
+    assert.deepEqual(
+      resultat.competences.map((c) => c.code),
+      ['C1'],
+    );
+    assert.deepEqual(
+      resultat.semestres.map((s) => s.numero),
+      [5],
+    );
+  });
+
+  test('légende « ADM : Admis » du bas de page : pas une ligne SENSE, et jamais recopiée', () => {
+    assert.deepEqual(resultat.rapport.ignore, [
+      { page: 1, texte: 'Certificat SENSE', raison: 'ligne SENSE' },
+      { page: 1, texte: 'Se saisir des Enjeux Environnementaux (inventé) - coef 1', raison: 'ligne SENSE' },
+    ]);
+    assert.ok(!JSON.stringify(resultat).includes('Admis'));
+  });
+
+  test('il ne reste qu’un seul message, utile : la moyenne reprise de R5.B.06', () => {
+    assert.deepEqual(messages(resultat), [
+      '« R5.B.06 » : aucune évaluation détaillée dans le relevé. Sa moyenne officielle (15) devient une évaluation « Moyenne du relevé », coef 1.',
+    ]);
+  });
+});
+
 // ---------- Cas particuliers : relevés construits dans le test ----------
 
 // Un élément texte qui commence en x (largeur ≈ une demi-taille par caractère).
@@ -389,7 +458,7 @@ describe('cas particuliers (relevés construits dans le test)', () => {
     assert.equal(resultat.semestres[0].malus, null);
   });
 
-  test('colonne « Session 2 » : signalée, et ses notes ne sont pas importées', () => {
+  test('note en « Session 2 » : signalée, et pas importée', () => {
     const resultat = importerNotes(
       releve([...DEBUT_S3, [5, 'Examen - coef 1', { note: 8, session2: 12, resultat: 'ADM' }]], { session2: true }),
     );
@@ -397,8 +466,32 @@ describe('cas particuliers (relevés construits dans le test)', () => {
       { libelle: 'Examen - coef 1', note: 8, coef: 1, ue: null },
     ]);
     assert.deepEqual(messages(resultat), [
-      'Le relevé contient une colonne « Session 2 » : seules les notes de la session 1 sont importées.',
+      'Le relevé contient des notes de « Session 2 » : seules les notes de la session 1 sont importées.',
     ]);
+  });
+
+  test('colonne « Session 2 » sans aucune note : pas de message', () => {
+    const resultat = importerNotes(releve([...DEBUT_S3, [5, 'Examen - coef 1', { note: 8 }]], { session2: true }));
+    assert.deepEqual(resultat.rapport.aVerifier, []);
+  });
+
+  test('légende en bas d’une page, au milieu d’une ressource : elle ne devient pas une évaluation', () => {
+    const elements = releve([
+      ...DEBUT_S3, // rangées en y = 780, 766, 752, 738
+      [5, 'Contrôle - coef 1', { note: 10 }], // y = 724
+      [5, 'TP - coef 1', { note: 12 }], // y = 710
+    ]);
+    // La légende n'a pas de code. Elle commence au même retrait que les
+    // évaluations (90 + 4 × 12 = 138) : rangée par son retrait, elle
+    // deviendrait une évaluation de R3.01, sans coefficient.
+    elements.push(element('ADM : Admis', 138, 717), element('AJ : Ajourné', 210, 717));
+    const resultat = importerNotes(elements);
+    assert.deepEqual(
+      resultat.semestres[0].elements[0].evaluations.map((e) => e.libelle),
+      ['Contrôle - coef 1', 'TP - coef 1'],
+    );
+    assert.deepEqual(resultat.rapport.coefsInconnus, []);
+    assert.deepEqual(resultat.rapport.aVerifier, []);
   });
 
   test('variante « UE 3.6 DACS : … » : l’évaluation va dans UE3.6', () => {
@@ -453,6 +546,39 @@ describe('cas particuliers (relevés construits dans le test)', () => {
     assert.equal(resultat.rapport.coefsInconnus[0].raison, 'aucun coefficient dans le libellé');
   });
 
+  test('partie SAE (stage) sans évaluation détaillée : sa moyenne officielle devient une évaluation', () => {
+    const resultat = importerNotes(
+      releve([
+        [1, 'SEMESTRE 6 BUT Informatique'],
+        [2, 'UE6.1 Réaliser (inventé)'],
+        [3, 'Pôle SAE UE 6.1'],
+        [4, 'Stage', { note: '14.5' }],
+      ]),
+    );
+    assert.deepEqual(resultat.semestres[0].elements[0].evaluations, [
+      { libelle: 'Moyenne du relevé', note: 14.5, coef: 1, ue: null },
+    ]);
+    assert.deepEqual(messages(resultat), [
+      '« Stage » : aucune évaluation détaillée dans le relevé. Sa moyenne officielle (14,5) devient une évaluation « Moyenne du relevé », coef 1.',
+    ]);
+  });
+
+  test('sans moyenne officielle, ou avec des évaluations dans une matière : rien n’est ajouté', () => {
+    const resultat = importerNotes(
+      releve([
+        ...DEBUT_S3, // R3.01 : ni moyenne officielle, ni évaluation
+        [4, 'R3.12 Langues (inventée)', { note: 12 }],
+        [5, 'Mati 1 Anglais', { note: 12 }],
+        [6, 'Oral - coef 1', { note: 12 }],
+      ]),
+    );
+    const [r301, r312] = resultat.semestres[0].elements;
+    assert.deepEqual(r301.evaluations, []);
+    assert.deepEqual(r312.evaluations, []);
+    assert.equal(r312.matieres[0].evaluations.length, 1);
+    assert.deepEqual(resultat.rapport.aVerifier, []);
+  });
+
   test('évaluation hors d’une ressource ou d’une SAE : non importée, et signalée', () => {
     const resultat = importerNotes(
       releve([
@@ -472,14 +598,63 @@ describe('cas particuliers (relevés construits dans le test)', () => {
     assert.deepEqual(messages(resultat), ['« Ligne mystère (inventée) » : ligne non reconnue, elle n’est pas importée.']);
   });
 
-  test('ressource présente deux fois dans un semestre : seule la première est importée', () => {
+  // Début commun des cas « ligne doublée » : R3.01 sera écrite deux fois.
+  const DEBUT_DOUBLE = [
+    [1, 'SEMESTRE 3 BUT Informatique'],
+    [2, 'UE3.1 Réaliser (inventé)'],
+    [3, 'Pôle Ressource UE 3.1'],
+  ];
+
+  test('ligne doublée « FI » : la moyenne officielle est prise sur la ligne qui en a une', () => {
     const resultat = importerNotes(
-      releve([...DEBUT_S3, [5, 'A - coef 1', { note: 10 }], [4, 'R3.01 Ressource inventée'], [5, 'B - coef 1', { note: 20 }]]),
+      releve([
+        ...DEBUT_DOUBLE,
+        [4, 'R3.01 Ressource inventée'],
+        [5, 'A - coef 1', { note: 10 }],
+        [4, 'R3.01 Ressource inventée FI', { note: 11, resultat: 'V' }],
+        [5, 'B - coef 1', { note: 12 }],
+      ]),
+    );
+    const [r301] = resultat.semestres[0].elements;
+    assert.equal(resultat.semestres[0].elements.length, 1);
+    assert.deepEqual(r301.officiel, { moyenne: 11, resultat: 'V' });
+    assert.deepEqual(
+      r301.evaluations.map((e) => e.libelle),
+      ['A - coef 1', 'B - coef 1'],
+    );
+    assert.deepEqual(resultat.rapport.aVerifier, []);
+  });
+
+  test('ligne doublée avec deux moyennes officielles différentes : la première est gardée, et c’est signalé', () => {
+    const resultat = importerNotes(
+      releve([
+        ...DEBUT_DOUBLE,
+        [4, 'R3.01 Ressource inventée', { note: 11 }],
+        [5, 'A - coef 1', { note: 11 }],
+        [4, 'R3.01 Ressource inventée FI', { note: '13.5' }],
+        [5, 'B - coef 1', { note: '13.5' }],
+      ]),
+    );
+    assert.equal(resultat.semestres[0].elements[0].officiel.moyenne, 11);
+    assert.deepEqual(messages(resultat), [
+      '« R3.01 » apparaît sur deux lignes avec deux moyennes officielles différentes (11 et 13,5) : seule la première est gardée.',
+    ]);
+  });
+
+  test('même code mais libellé vraiment différent : lignes réunies, et c’est signalé', () => {
+    const resultat = importerNotes(
+      releve([
+        ...DEBUT_DOUBLE,
+        [4, 'R3.01 Ressource inventée'],
+        [5, 'A - coef 1', { note: 10 }],
+        [4, 'R3.01 Autre intitulé (inventé)'],
+        [5, 'B - coef 1', { note: 20 }],
+      ]),
     );
     assert.equal(resultat.semestres[0].elements.length, 1);
-    assert.equal(resultat.semestres[0].elements[0].evaluations[0].libelle, 'A - coef 1');
+    assert.equal(resultat.semestres[0].elements[0].evaluations.length, 2);
     assert.deepEqual(messages(resultat), [
-      '« R3.01 Ressource inventée » apparaît deux fois au semestre 3 : seule la première est importée.',
+      '« R3.01 Autre intitulé (inventé) » a le même code que « R3.01 Ressource inventée » : leurs évaluations sont réunies.',
     ]);
   });
 

@@ -41,6 +41,14 @@ const MOTIFS_PERSONNELS = [
   /\bpage\s*\d+\s*(?:\/|sur)\s*\d+/i, // pied de page « Page 1/2 »
 ];
 
+// Légende du bas de page : « ADM : Admis   AJ : Ajourné … ». Ce n'est pas
+// une ligne du tableau. Sans ce filtre, rangée par son retrait, elle
+// tomberait sous la ligne précédente (une ligne SENSE, une ressource…).
+const MOTIFS_LEGENDE = [
+  /^(?:ADM|ADJ|AJ|AJAC|ATT|CMP|DEF|NAR|NV|VAL|V\/COR|V)\s*:\s/, // un code de résultat, puis « : »
+  /^l[ée]gende\b/i,
+];
+
 // Titres des colonnes de valeurs. « Code » et « Libellé » sont traités à part.
 const TITRES_VALEURS = [
   { nom: 'session1', motif: /^session\s*1$/i },
@@ -67,6 +75,7 @@ const MOTIF_NOMBRE = /^\d+(?:[.,]\d+)?$/;
 const TYPES_DE_LIGNES = [
   { type: 'sense', motif: /\bSENSE\b/ }, // en majuscules seulement
   { type: 'sense', motif: /^se saisir des enjeux/i },
+  { type: 'diplome', motif: /^B\d\s*-\s*Informatique\b/i }, // « B2 - Informatique PT DACS (FI) »
   { type: 'malus', motif: /^malus\b/i },
   { type: 'pole', motif: /^p[ôo]le\s+(sae|ressources?)\b/i },
   { type: 'evaluation', motif: MOTIF_COEF },
@@ -80,8 +89,9 @@ const TYPES_DE_LIGNES = [
   { type: 'matiere', motif: /^mati(?:[èe]re)?\.?\s*\d+\b/i }, // « Mati 1 Anglais »
 ];
 
-// Types qui forment un « élément » : une ressource ou une partie du pôle SAE.
-const TYPES_ELEMENT = new Set(['ressource', 'sae', 'portfolio', 'stage']);
+// Libellé de l'évaluation créée quand le relevé ne donne qu'une moyenne
+// officielle, sans évaluation détaillée.
+const LIBELLE_MOYENNE_RELEVE = 'Moyenne du relevé';
 
 /**
  * Analyse un relevé « Détail des notes ».
@@ -107,7 +117,7 @@ const TYPES_ELEMENT = new Set(['ressource', 'sae', 'portfolio', 'stage']);
  *     }[],
  *   }[],
  *   rapport: {
- *     lignesNonLues: number,       // en-tête personnel et pieds de page, jamais lus
+ *     lignesNonLues: number,       // en-tête personnel, pieds de page et légende, jamais lus
  *     ignore: { page: number, texte: string, raison: string }[],
  *     aVerifier: { page?: number, message: string }[],
  *     coefsInconnus: { page: number, semestre: number, element: string, libelle: string, raison: string }[],
@@ -117,7 +127,12 @@ const TYPES_ELEMENT = new Set(['ressource', 'sae', 'portfolio', 'stage']);
  * avec Evaluation = { libelle: string, note: number|null, coef: number|null, ue: string|null }
  *   - note null : pas encore notée ;
  *   - coef null : coefficient inconnu, à demander à l'utilisateur ;
- *   - ue : UE citée dans le libellé (évaluations de SAE du S3), sinon null.
+ *   - ue : UE citée dans le libellé (évaluations de SAE du S3), sinon null ;
+ *   - libellé « Moyenne du relevé » : créée quand le relevé ne donne que la
+ *     moyenne officielle d'un élément, sans évaluation détaillée (signalé).
+ *
+ * Un élément écrit sur deux lignes de même code (« R5.B.04 … » puis
+ * « R5.B.04 … FI », au BUT3) est réuni en un seul.
  */
 export function importerNotes(elements) {
   const rapport = { lignesNonLues: 0, ignore: [], aVerifier: [], coefsInconnus: [], erreurs: [] };
@@ -145,12 +160,12 @@ export function importerNotes(elements) {
     interpreter(noeud, {}, resultat, rapport);
   }
 
-  // 5. Contrôles finaux.
+  // 5. Passe finale, une fois TOUT le relevé lu.
   if (resultat.semestres.length === 0) {
     rapport.erreurs.push({ message: 'Aucune ligne « SEMESTRE … » n’a été trouvée dans le relevé.' });
   }
   for (const semestre of resultat.semestres) {
-    controlerUeCitees(semestre, rapport);
+    terminerSemestre(semestre, rapport);
   }
 
   return { ...resultat, rapport };
@@ -183,16 +198,11 @@ function lireRangees(lignes, rapport) {
     }
 
     // 3. Ligne de titres : elle donne la position des colonnes.
+    //    (La colonne « Session 2 » existe toujours, même vide : on ne la
+    //    signale que si elle contient une note, à l'étape 7.)
     if (estLigneDeTitres(ligne)) {
       colonnes = lireColonnes(ligne);
       titresVusSurLaPage = true;
-      if (colonnes.session2 && !session2Signalee) {
-        session2Signalee = true;
-        rapport.aVerifier.push({
-          page,
-          message: 'Le relevé contient une colonne « Session 2 » : seules les notes de la session 1 sont importées.',
-        });
-      }
       continue;
     }
 
@@ -210,10 +220,25 @@ function lireRangees(lignes, rapport) {
       continue;
     }
 
-    // 6. On range chaque élément dans sa colonne.
-    const rangee = decouperRangee(ligne, colonnes);
+    // 6. Légende du bas de page (« ADM : Admis … ») : écartée, comme un
+    //    pied de page, AVANT de construire l'arbre.
+    if (MOTIFS_LEGENDE.some((motif) => motif.test(texte))) {
+      rapport.lignesNonLues++;
+      continue;
+    }
 
-    // 7. Sans libellé, on ne sait pas à quoi la ligne correspond. On ne
+    // 7. On range chaque élément dans sa colonne. Une note en « Session 2 »
+    //    n'est pas importée : on le signale (une seule fois).
+    const rangee = decouperRangee(ligne, colonnes);
+    if (rangee.session2 !== null && !session2Signalee) {
+      session2Signalee = true;
+      rapport.aVerifier.push({
+        page,
+        message: 'Le relevé contient des notes de « Session 2 » : seules les notes de la session 1 sont importées.',
+      });
+    }
+
+    // 8. Sans libellé, on ne sait pas à quoi la ligne correspond. On ne
     //    recopie pas son texte : il pourrait venir d'en dehors du tableau.
     if (rangee.libelle === '') {
       rapport.aVerifier.push({
@@ -240,7 +265,7 @@ function estLigneDeTitres(ligne) {
 /**
  * Lit la position des colonnes sur une ligne de titres.
  *
- * @returns {{ libelle: number, debutValeurs: number, session2: boolean,
+ * @returns {{ libelle: number, debutValeurs: number,
  *             valeurs: { nom: string, debut: number, centre: number }[] }}
  */
 function lireColonnes(ligne) {
@@ -261,7 +286,6 @@ function lireColonnes(ligne) {
     // 3. La zone des valeurs commence un peu avant le premier titre de valeur.
     debutValeurs: Math.min(...valeurs.map((valeur) => valeur.debut)) - MARGE_VALEURS,
     valeurs,
-    session2: valeurs.some((valeur) => valeur.nom === 'session2'),
   };
 }
 
@@ -401,6 +425,12 @@ function interpreter(noeud, contexte, resultat, rapport) {
       ignorerSousArbre(noeud, 'ligne SENSE', rapport);
       return;
 
+    // Ligne du diplôme (« B2 - Informatique PT DACS (FI) ») : rien à
+    // importer, rien à signaler. Les lignes qu'elle contient (si elle est
+    // plus à gauche que les autres) sont lues normalement, à l'étape 11.
+    case 'diplome':
+      break;
+
     // 2. Compétence de l'année : seule sa moyenne officielle est gardée.
     case 'competence':
       resultat.competences.push({
@@ -479,11 +509,11 @@ function interpreter(noeud, contexte, resultat, rapport) {
     case 'sae':
     case 'portfolio':
     case 'stage': {
-      const nouveau = creerElement(noeud, type, trouve, contexte, rapport);
-      if (!nouveau) {
+      const trouveOuCree = trouverOuCreerElement(noeud, type, trouve, contexte, rapport);
+      if (!trouveOuCree) {
         return; // déjà signalé : ses lignes ne sont pas importées
       }
-      contexteEnfants = { semestre, ue, element: nouveau };
+      contexteEnfants = { semestre, ue, element: trouveOuCree };
       break;
     }
 
@@ -528,19 +558,16 @@ function interpreter(noeud, contexte, resultat, rapport) {
   for (const enfant of noeud.enfants) {
     interpreter(enfant, contexteEnfants, resultat, rapport);
   }
-
-  // 12. Une fois l'élément complet, on vérifie les UE citées par ses évaluations.
-  if (TYPES_ELEMENT.has(type) && contexteEnfants.element) {
-    controlerUeManquantes(contexteEnfants.element, noeud, rapport);
-  }
 }
 
 /**
- * Crée un élément (ressource, SAE, portfolio ou stage) dans son semestre.
+ * Crée un élément (ressource, SAE, portfolio ou stage) dans son semestre, ou
+ * retrouve celui qui a déjà le même code (ligne doublée « FI » du BUT3).
  *
- * @returns {object|null} null si l'élément ne peut pas être importé
+ * @returns {object|null} l'élément où ranger les lignes qui suivent, ou null
+ *   s'il ne peut pas être importé
  */
-function creerElement(noeud, type, trouve, { semestre, ue }, rapport) {
+function trouverOuCreerElement(noeud, type, trouve, { semestre, ue }, rapport) {
   // 1. Un élément appartient forcément à un semestre.
   if (!semestre) {
     rapport.aVerifier.push({
@@ -553,29 +580,64 @@ function creerElement(noeud, type, trouve, { semestre, ue }, rapport) {
   // 2. Code et libellé : « R3.01 Développement web » → R3.01 + Développement web.
   //    Le portfolio et le stage n'ont pas de code dans le relevé.
   const avecCode = type === 'ressource' || type === 'sae';
-  const nouveau = {
-    type,
-    code: avecCode ? trouve[1] : null,
-    libelle: avecCode ? trouve[2] : noeud.libelle,
-    ue: ue?.code ?? null,
-    officiel: lireOfficiel(noeud, rapport),
-    evaluations: [],
-    matieres: [],
-  };
+  const code = avecCode ? trouve[1] : null;
+  const libelle = avecCode ? trouve[2] : noeud.libelle;
+  const officiel = lireOfficiel(noeud, rapport);
 
-  // 3. Un élément n'apparaît qu'une fois par semestre. S'il revient, on ne
-  //    garde que le premier, et on le dit.
-  const cle = (element) => element.code ?? element.type;
-  if (semestre.elements.some((existant) => cle(existant) === cle(nouveau))) {
-    rapport.aVerifier.push({
-      page: noeud.page,
-      message: `« ${noeud.libelle} » apparaît deux fois au semestre ${semestre.numero} : seule la première est importée.`,
-    });
-    return null;
+  // 3. Même code déjà lu dans ce semestre : c'est le même élément, écrit
+  //    sur deux lignes (au BUT3 : « R5.B.04 … » puis « R5.B.04 … FI »).
+  //    On réunit les deux. Le portfolio et le stage, sans code, sont
+  //    reconnus par leur type.
+  const existant = semestre.elements.find((element) => (element.code ?? element.type) === (code ?? type));
+  if (existant) {
+    fusionner(existant, libelle, officiel, noeud, rapport);
+    return existant;
   }
 
+  // 4. Sinon, c'est un nouvel élément.
+  const nouveau = { type, code, libelle, ue: ue?.code ?? null, officiel, evaluations: [], matieres: [] };
   semestre.elements.push(nouveau);
   return nouveau;
+}
+
+/**
+ * Réunit une deuxième ligne de même code avec l'élément déjà lu. Ses
+ * évaluations (les lignes en dessous) iront dans l'élément existant.
+ */
+function fusionner(existant, libelle, officiel, noeud, rapport) {
+  const signaler = (message) => rapport.aVerifier.push({ page: noeud.page, message });
+
+  // 1. « Programmation système FI » et « Programmation système » sont la
+  //    même chose. Un libellé vraiment différent est inattendu : on réunit
+  //    quand même (même code = même élément), mais on le dit.
+  if (sansSuffixeFi(libelle) !== sansSuffixeFi(existant.libelle)) {
+    signaler(`« ${noeud.libelle} » a le même code que « ${nomComplet(existant)} » : leurs évaluations sont réunies.`);
+  }
+
+  // 2. Moyenne officielle : celle de la ligne qui en a une. Si les deux en
+  //    ont une, différente, on garde la première et on le dit.
+  if (existant.officiel.moyenne === null) {
+    existant.officiel.moyenne = officiel.moyenne;
+  } else if (officiel.moyenne !== null && officiel.moyenne !== existant.officiel.moyenne) {
+    signaler(
+      `« ${existant.code ?? existant.libelle} » apparaît sur deux lignes avec deux moyennes officielles différentes (${enFrancais(existant.officiel.moyenne)} et ${enFrancais(officiel.moyenne)}) : seule la première est gardée.`,
+    );
+  }
+
+  // 3. Résultat officiel : de même, celui de la ligne qui en a un.
+  if (existant.officiel.resultat === null) {
+    existant.officiel.resultat = officiel.resultat;
+  }
+}
+
+// Retire « FI » (ou « (FI) ») à la fin d'un libellé : formation initiale.
+function sansSuffixeFi(libelle) {
+  return libelle.replace(/\s+(?:FI|\(FI\))$/, '');
+}
+
+// Nom d'un élément dans un message : « R3.01 Développement web », ou « Stage ».
+function nomComplet(element) {
+  return element.code ? `${element.code} ${element.libelle}` : element.libelle;
 }
 
 /**
@@ -630,7 +692,19 @@ function ignorerSousArbre(noeud, raison, rapport) {
   }
 }
 
-/* ==================== Contrôles des UE citées ==================== */
+/* ==================== Étape 5 : la passe finale ==================== */
+
+/**
+ * Termine un semestre, une fois TOUT le relevé lu. On attend la fin car un
+ * élément peut encore recevoir des évaluations plus bas dans le relevé.
+ */
+function terminerSemestre(semestre, rapport) {
+  for (const element of semestre.elements) {
+    reprendreMoyenneOfficielle(element, rapport);
+    controlerUeManquantes(element, rapport);
+  }
+  controlerUeCitees(semestre, rapport);
+}
 
 // Toutes les évaluations d'un élément, matières comprises.
 function evaluationsDe(element) {
@@ -638,25 +712,46 @@ function evaluationsDe(element) {
 }
 
 /**
+ * Ressource ou partie SAE qui a une moyenne officielle, mais aucune
+ * évaluation détaillée (par exemple « R4.03 … 15 », sans rien dessous).
+ * Sans évaluation, elle n'aurait pas de note et ne compterait pas : on crée
+ * une évaluation « Moyenne du relevé » avec cette moyenne, coef 1 (seule
+ * dans sa ressource, son coef ne change pas la moyenne). Et on le dit.
+ */
+function reprendreMoyenneOfficielle(element, rapport) {
+  // 1. Il faut une moyenne officielle, et aucune évaluation (matières comprises).
+  const moyenne = element.officiel.moyenne;
+  if (moyenne === null || evaluationsDe(element).length > 0) {
+    return;
+  }
+
+  // 2. L'évaluation créée. La note n'est pas inventée : c'est celle du relevé.
+  element.evaluations.push({ libelle: LIBELLE_MOYENNE_RELEVE, note: moyenne, coef: 1, ue: null });
+
+  // 3. On le signale : l'utilisateur sait d'où vient cette évaluation.
+  rapport.aVerifier.push({
+    message: `« ${element.code ?? element.libelle} » : aucune évaluation détaillée dans le relevé. Sa moyenne officielle (${enFrancais(moyenne)}) devient une évaluation « ${LIBELLE_MOYENNE_RELEVE} », coef 1.`,
+  });
+}
+
+/**
  * Au S3, les évaluations de SAE citent leur UE (« Sae UE 3.2 : … »). Si
  * certaines évaluations d'un élément citent une UE et d'autres non, on ne
  * sait pas où ranger ces dernières : on le signale.
  */
-function controlerUeManquantes(element, noeud, rapport) {
+function controlerUeManquantes(element, rapport) {
   const evaluations = evaluationsDe(element);
   if (!evaluations.some((evaluation) => evaluation.ue !== null)) {
     return; // aucune UE citée : élément « normal »
   }
   for (const evaluation of evaluations.filter((e) => e.ue === null)) {
     rapport.aVerifier.push({
-      page: noeud.page,
       message: `« ${evaluation.libelle} » : aucune UE dans le libellé, alors que les autres évaluations de « ${element.code ?? element.libelle} » en citent une.`,
     });
   }
 }
 
-// Une UE citée doit exister dans le semestre (contrôle fait à la fin, quand
-// toutes les UE du semestre ont été lues).
+// Une UE citée doit exister dans le semestre.
 function controlerUeCitees(semestre, rapport) {
   const codes = new Set(semestre.ues.map((ue) => ue.code));
   for (const element of semestre.elements) {
@@ -687,6 +782,11 @@ function lireCoef(texte) {
 function lireUeCitee(libelle) {
   const trouve = MOTIF_UE_CITEE.exec(libelle);
   return trouve ? `UE${trouve[1]}.${trouve[2]}` : null;
+}
+
+// Écrit un nombre à la française : 14.5 → « 14,5 ».
+function enFrancais(nombre) {
+  return String(nombre).replace('.', ',');
 }
 
 // Moyenne et résultat officiels d'une ligne (compétence, UE, ressource…).
