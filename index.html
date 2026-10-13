@@ -37,6 +37,28 @@
       <p class="noscript">Ce simulateur a besoin de JavaScript pour faire les calculs. Active JavaScript dans ton navigateur, puis recharge la page. Aucune donnée n'est envoyée : tout est calculé sur ton appareil.</p>
     </noscript>
 
+    <!-- ===== Import facultatif des PDF de l'ENT (un import peut remplir plusieurs semestres) ===== -->
+    <section class="panel import" id="import" aria-labelledby="titre-import">
+      <h2 class="import__titre" id="titre-import">Importer depuis l'ENT <span class="import__facultatif">(facultatif)</span></h2>
+      <p class="hint">Le tableau des coefficients et ton relevé « Détail des notes » pré-remplissent la saisie : tout reste modifiable. Les PDF sont lus sur ton appareil, rien n'est envoyé. L'en-tête du relevé (nom, n° de dossier…) n'est pas lu.</p>
+      <div class="actions">
+        <button class="btn btn--secondary btn--sm" type="button" id="btn-import-coefficients" data-import="coefficients">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 21h14"/></svg>
+          Importer les coefficients (PDF)
+        </button>
+        <button class="btn btn--secondary btn--sm" type="button" id="btn-import-releve" data-import="releve">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 21h14"/></svg>
+          Importer mon relevé (PDF)
+        </button>
+      </div>
+      <!-- Sélecteurs de fichier cachés : les boutons ci-dessus les ouvrent. -->
+      <input type="file" id="fichier-coefficients" accept="application/pdf,.pdf" hidden>
+      <input type="file" id="fichier-releve" accept="application/pdf,.pdf" hidden>
+      <p class="hint import__etat" id="import-etat" role="status"></p>
+      <!-- Rapport du dernier import, rempli par app.js (textContent seulement). -->
+      <div class="rapport" id="rapport-import" role="region" aria-labelledby="titre-rapport" tabindex="-1" hidden></div>
+    </section>
+
     <div class="tabs semestres" role="tablist" aria-label="Semestre">
       <button class="tab" type="button" role="tab" id="onglet-s1" data-semestre="1" aria-controls="saisie" aria-selected="true">S1</button>
       <button class="tab" type="button" role="tab" id="onglet-s2" data-semestre="2" aria-controls="saisie" aria-selected="false" tabindex="-1">S2</button>

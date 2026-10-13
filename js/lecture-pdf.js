@@ -126,21 +126,23 @@ export async function lirePdf(fichier) {
  * @param {File} fichier
  */
 function verifierFichier(fichier) {
+  // Les messages ne citent jamais le nom du fichier : venu de l'ENT, il peut
+  // contenir ton nom ou ton numéro de dossier.
   if (!fichier) {
     throw new ErreurLecturePdf('Aucun fichier n’a été choisi.');
   }
   // Le type est déduit de l'extension par le navigateur : c'est un premier
   // filtre, que la signature (étape suivante) vient confirmer.
   if (fichier.type !== 'application/pdf') {
-    throw new ErreurLecturePdf(`« ${fichier.name} » n’est pas un fichier PDF.`);
+    throw new ErreurLecturePdf('Ce fichier n’est pas un PDF.');
   }
   if (fichier.size === 0) {
-    throw new ErreurLecturePdf(`Le fichier « ${fichier.name} » est vide.`);
+    throw new ErreurLecturePdf('Ce fichier est vide.');
   }
   if (fichier.size > TAILLE_MAX_OCTETS) {
     const tailleMo = (fichier.size / (1024 * 1024)).toFixed(1).replace('.', ',');
     throw new ErreurLecturePdf(
-      `Le fichier « ${fichier.name} » est trop lourd (${tailleMo} Mo). La limite est de 5 Mo.`,
+      `Ce fichier est trop lourd (${tailleMo} Mo). La limite est de 5 Mo.`,
     );
   }
 }

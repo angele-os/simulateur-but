@@ -150,6 +150,18 @@ describe('mise en page BUT1-2 (fixture inventée : 6 UE, 2 semestres sur 2 pages
     }
   });
 
+  test('chaque semestre donne aussi ses lignes, avec leur coefficient dans chaque UE', () => {
+    const [s1] = resultat.semestres;
+    assert.deepEqual(
+      s1.lignes.find((l) => l.code === 'R1.01'),
+      { type: 'ressource', code: 'R1.01', libelle: 'Ressource inventée 1', coefs: { 'UE1.1': 30, 'UE1.2': 20 } },
+    );
+    // Le portfolio du S1 n'a aucun coefficient : il figure quand même, sans coefficient.
+    assert.deepEqual(s1.lignes.find((l) => l.code === 'S1.PF').coefs, {});
+    // Toutes les lignes lues sont là, dans l'un ou l'autre semestre.
+    assert.equal(resultat.semestres.flatMap((s) => s.lignes).length, resultat.rapport.lu.length);
+  });
+
   test('code répété (R1.01 R1.01) : une seule ligne lue', () => {
     const lignesR101 = resultat.rapport.lu.filter((l) => l.code === 'R1.01');
     assert.equal(lignesR101.length, 1);

@@ -22,6 +22,7 @@ import {
   contientDesDonnees,
   formaterMoyenne,
   formaterNoteAViser,
+  comparerOfficiel,
 } from '../js/modele.js';
 
 // Fabrique une évaluation saisie (les nombres sont des TEXTES, comme dans la page).
@@ -291,5 +292,25 @@ describe('affichage des nombres', () => {
     assert.equal(formaterNoteAViser(0), '0,00');
     // Piège : 1,1 × 100 = 110,00000000000001 pour l'ordinateur.
     assert.equal(formaterNoteAViser(1.1), '1,10');
+  });
+});
+
+describe('comparaison avec le relevé (calculé / officiel)', () => {
+  test('écart de 0,010 pile : pas signalé ; 0,011 : signalé (calcul en millièmes entiers)', () => {
+    // Piège : 12,345 − 12,335 = 0,01000000000000156 pour l'ordinateur.
+    assert.deepEqual(comparerOfficiel(12.345, 12.335), { officiel: 12.335, ecart: 0.01, signale: false });
+    assert.deepEqual(comparerOfficiel(12.346, 12.335), { officiel: 12.335, ecart: 0.011, signale: true });
+    // Dans les deux sens.
+    assert.equal(comparerOfficiel(11.4, 12.3).signale, true);
+  });
+
+  test('valeurs égales : écart nul', () => {
+    assert.deepEqual(comparerOfficiel(12.5, 12.5), { officiel: 12.5, ecart: 0, signale: false });
+  });
+
+  test('pas de moyenne officielle, ou pas encore de moyenne calculée : rien n’est signalé', () => {
+    assert.deepEqual(comparerOfficiel(12.5, null), { officiel: null, ecart: null, signale: false });
+    assert.deepEqual(comparerOfficiel(12.5, undefined), { officiel: null, ecart: null, signale: false });
+    assert.deepEqual(comparerOfficiel(null, 11), { officiel: 11, ecart: null, signale: false });
   });
 });

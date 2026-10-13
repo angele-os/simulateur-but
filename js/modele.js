@@ -329,6 +329,37 @@ export function contientDesDonnees(semestres) {
   );
 }
 
+/* ==================== Comparaison avec le relevé ==================== */
+
+// Au-delà de cet écart (en points), une moyenne calculée et la moyenne
+// officielle du relevé ne sont plus considérées comme égales.
+export const ECART_SIGNALE = 0.01;
+
+/**
+ * Compare une moyenne calculée à la moyenne officielle du relevé.
+ *
+ * Piège : 12,345 − 12,335 donne 0,01000000000000156 pour l'ordinateur, donc
+ * « plus que 0,01 ». On compare donc en millièmes ENTIERS : 10 millièmes
+ * pile ne sont pas signalés, 11 le sont.
+ *
+ * @param {number|null} calcule moyenne calculée par l'app
+ * @param {number|null|undefined} officiel moyenne du relevé (absente : null ou undefined)
+ * @returns {{ officiel: number|null, ecart: number|null, signale: boolean }}
+ */
+export function comparerOfficiel(calcule, officiel) {
+  // 1. Pas de moyenne officielle : rien à comparer.
+  if (officiel === null || officiel === undefined) {
+    return { officiel: null, ecart: null, signale: false };
+  }
+  // 2. Pas encore de moyenne calculée : on montre l'officielle, sans écart.
+  if (calcule === null) {
+    return { officiel, ecart: null, signale: false };
+  }
+  // 3. Écart en millièmes entiers, puis en points.
+  const ecartMilliemes = Math.round(Math.abs(calcule - officiel) * 1000);
+  return { officiel, ecart: ecartMilliemes / 1000, signale: ecartMilliemes > ECART_SIGNALE * 1000 };
+}
+
 /* ==================== Affichage des nombres ==================== */
 
 /**

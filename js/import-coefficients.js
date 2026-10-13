@@ -19,6 +19,12 @@ const TOLERANCE_TOTAL = 0.001;
 // Le premier chiffre (capturé entre parenthèses) est le numéro du semestre.
 const MOTIF_UE = /^UE(\d)\.\d$/;
 
+// Raison donnée aux lignes situées avant le premier en-tête d'UE (titre du
+// document…). remplissage.js ne recopie jamais leur texte : dans un PDF qui
+// n'est pas un tableau des coefficients (le relevé, choisi par erreur), une
+// telle ligne peut contenir n'importe quoi, jusqu'à ton nom.
+export const RAISON_AVANT_EN_TETE = 'avant le premier en-tête UE';
+
 // Codes qui signalent une ligne de données (une ressource, une SAE…).
 const MOTIFS_CODE = [
   /^R\d\.(?:[A-Z]\.)?\d{2}$/, // ressource : R1.01, R4.B.08
@@ -90,7 +96,11 @@ export function regrouperEnLignes(elements) {
  *     code: string, poidsSae: number, poidsRessources: number,
  *     sae: { code: string, libelle: string, coef: number }[],
  *     ressources: { code: string, libelle: string, coef: number }[],
- *   }[] }[],
+ *   }[],
+ *   // Les mêmes données, ligne par ligne, dans l'ordre du tableau. Une ligne
+ *   // sans aucun coefficient (portfolio du S1…) y figure aussi, avec coefs = {}.
+ *   lignes: { type: 'sae'|'ressource', code: string, libelle: string, coefs: Object<string, number> }[],
+ *   }[],
  *   rapport: {
  *     lu: { semestre: number, page: number, type: 'sae'|'ressource', code: string, libelle: string, coefs: Object<string, number> }[],
  *     ignore: { page: number, texte: string, raison: string }[],
@@ -132,7 +142,7 @@ export function importerCoefficients(elements) {
 
     // 3. Avant le premier en-tête, rien ne peut être rangé dans une colonne.
     if (semestre === null) {
-      ignorer('avant le premier en-tête UE');
+      ignorer(RAISON_AVANT_EN_TETE);
       continue;
     }
 
@@ -397,7 +407,10 @@ function construireSemestre(semestre, rapport) {
   });
 
   controlerTotaux(semestre, ues, rapport);
-  return { numero: semestre.numero, ues };
+  // Les lignes servent à remplir la saisie, qui range les coefficients ligne
+  // par ligne (une ressource et son coefficient dans chaque UE).
+  const lignes = semestre.lignes.map(({ type, code, libelle, coefs }) => ({ type, code, libelle, coefs }));
+  return { numero: semestre.numero, ues, lignes };
 }
 
 /**

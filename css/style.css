@@ -776,7 +776,8 @@ select.input {
 .evaluation__libelle { grid-area: libelle; }
 .evaluation__note { grid-area: note; }
 .evaluation__coef { grid-area: coef; }
-.a-viser { grid-area: viser; }
+/* Seulement dans une évaluation : la carte d'UE a aussi un .a-viser, mais pas de zone « viser ». */
+.evaluation .a-viser { grid-area: viser; }
 
 .evaluation__suppr {
   grid-area: suppr;
@@ -930,6 +931,103 @@ select.input {
   color: #6b4410;
   background: #fdecc0;
   border-radius: 10px;
+}
+
+/* Comparaison « calculé / officiel » (relevé importé) */
+.comparaison caption {
+  padding-bottom: .3rem;
+  font-size: .8rem;
+  text-align: left;
+  color: var(--text-faint);
+}
+
+/* Écart de plus de 0,01 avec le relevé : même ambre que « provisoire » */
+.data-table .ecart {
+  font-weight: 600;
+  color: #6b4410;
+}
+
+/* ========== 7 bis. Import des PDF ========== */
+.import {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: .75rem;
+  margin-bottom: 1.5rem;
+}
+
+.import__titre {
+  font-size: 1.3rem;
+}
+
+.import__facultatif {
+  font-family: var(--sans);
+  font-size: .9rem;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.import__etat:empty {
+  display: none;
+}
+
+/* Rapport du dernier import */
+.rapport {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: .9rem;
+  padding: 1rem 1.1rem;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+
+.rapport__titre {
+  font-size: 1.1rem;
+}
+
+.rapport__partie {
+  display: grid;
+  gap: .4rem;
+  padding-left: .75rem;
+  border-left: 3px solid var(--line-strong);
+}
+
+/* « À compléter » : mis en avant, avec l'ambre des avis */
+.rapport__partie--completer {
+  border-left-color: #b7791f;
+}
+
+.rapport h4 {
+  margin: 0;
+  font-size: .95rem;
+  color: var(--text);
+}
+
+.rapport ul {
+  display: grid;
+  gap: .35rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: .9rem;
+  color: var(--text-dim);
+}
+
+/* Les longs codes (S3.01 – UE3.2…) passent à la ligne au lieu de déborder */
+.rapport li {
+  overflow-wrap: anywhere;
+}
+
+.rapport__ecarte summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: .9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rapport > .btn {
+  justify-self: start;
 }
 
 /* ========== 8. Responsive ========== */

@@ -26,7 +26,13 @@ import {
   contientDesDonnees,
   formaterMoyenne,
   formaterNoteAViser,
+  comparerOfficiel,
 } from './modele.js';
+import { importerCoefficients } from './import-coefficients.js';
+import { importerNotes } from './import-notes.js';
+import { preparerImportCoefficients, preparerImportReleve, messageConfirmation } from './remplissage.js';
+// lecture-pdf.js (et donc pdf.js) n'est chargé qu'au premier import, avec
+// import() : la saisie manuelle fonctionne toujours, même sans lui.
 
 /* ==================== État de la saisie ==================== */
 
@@ -35,6 +41,10 @@ const etat = {
   cible: '', // cible de la note à viser, telle que tapée (vide = 10)
   // Un semestre vide pour chacun des 6 semestres.
   semestres: Object.fromEntries([1, 2, 3, 4, 5, 6].map((numero) => [numero, creerSemestre()])),
+  // Moyennes officielles du dernier relevé importé, pour « calculé / officiel » :
+  //   ues : n° de semestre → code d'UE → { moyenne, poleSae, poleRessources } ;
+  //   competences : année (n° du semestre impair) → n° de compétence → moyenne.
+  officiels: { ues: {}, competences: {} },
 };
 
 // Identifiants uniques : ils relient chaque champ à sa donnée et à son libellé.
@@ -77,6 +87,9 @@ const champCible = document.getElementById('cible');
 const titreResultats = document.getElementById('titre-resultats');
 const contenuResultats = document.getElementById('resultats-contenu');
 const zoneAnnonce = document.getElementById('annonce');
+const sectionImport = document.getElementById('import');
+const etatImport = document.getElementById('import-etat');
+const rapportImport = document.getElementById('rapport-import');
 
 // Zones mises à jour en direct dans la saisie, remplies à chaque affichage :
 // id d'évaluation → { sortie, evaluation } ; id de ligne → zone de sa moyenne.
@@ -386,7 +399,7 @@ function blocsResultats(analyse, numero) {
   if (analyse.ues.length === 0) {
     blocs.push(creer('p', 'vide-texte', 'Ajoute des UE et des notes : les résultats s’afficheront ici, en direct.'));
   }
-  blocs.push(...analyse.ues.map((ue) => carteUe(ue, analyse)));
+  blocs.push(...analyse.ues.map((ue) => carteUe(ue, analyse, numero)));
   if (analyse.elements.length > 0) {
     blocs.push(carteMoyennesLignes(analyse.elements));
   }
@@ -412,7 +425,7 @@ function badgeRepere(moyenne, court = false) {
 }
 
 // Carte du résultat d'une UE.
-function carteUe(ue, analyse) {
+function carteUe(ue, analyse, numero) {
   const carte = creer('article', 'card ue-resultat');
   const titreId = `resultat-${ue.id}`;
   carte.setAttribute('aria-labelledby', titreId);
@@ -455,7 +468,27 @@ function carteUe(ue, analyse) {
   }
   carte.append(poles);
 
-  // 4. Les poids du tableau officiel totalisent 100 : on prévient sinon.
+  // 4. Le relevé importé donne les moyennes officielles : calculé / officiel.
+  const officiel = etat.officiels.ues[numero]?.[ue.code];
+  if (officiel && [officiel.moyenne, officiel.poleSae, officiel.poleRessources].some((v) => v !== null)) {
+    const comparaisons = [
+      ['Moyenne de l’UE', comparerOfficiel(ue.moyenne, officiel.moyenne), ue.moyenne],
+      ['Pôle SAE', comparerOfficiel(ue.poleSae, officiel.poleSae), ue.poleSae],
+      ['Pôle ressources', comparerOfficiel(ue.poleRessources, officiel.poleRessources), ue.poleRessources],
+    ];
+    carte.append(tableauComparaison(comparaisons));
+    if (comparaisons.some(([, comparaison]) => comparaison.signale)) {
+      carte.append(
+        creer(
+          'p',
+          'alerte',
+          'Écart de plus de 0,01 avec le relevé : vérifie les coefficients. Celui écrit dans un libellé n’est pas toujours celui qu’utilise l’IUT.',
+        ),
+      );
+    }
+  }
+
+  // 5. Les poids du tableau officiel totalisent 100 : on prévient sinon.
   const totalPoids = ue.poidsSae + ue.poidsRessources;
   if (totalPoids > 0 && Math.abs(totalPoids - 100) > 0.001) {
     carte.append(
@@ -463,7 +496,7 @@ function carteUe(ue, analyse) {
     );
   }
 
-  // 5. Note à viser sur les évaluations restantes.
+  // 6. Note à viser sur les évaluations restantes.
   if (ue.aViser) {
     carte.append(creer('p', 'a-viser', texteAViserUe(ue, analyse.cible)));
   }
@@ -486,6 +519,45 @@ function texteAViserUe(ue, cible) {
 
 // Coefficients et poids : sans décimales inutiles (40 → « 40 », 7.5 → « 7,5 »).
 const formaterPoids = (valeur) => valeur.toLocaleString('fr-FR', { maximumFractionDigits: 3 });
+
+/**
+ * Cellule « officiel » : la moyenne du relevé, et l'écart s'il dépasse 0,01.
+ *
+ * @param {{ officiel: number|null, ecart: number|null, signale: boolean }} comparaison (voir comparerOfficiel)
+ */
+function celluleOfficiel(comparaison) {
+  const cellule = creer('td', 'num', formaterMoyenne(comparaison.officiel));
+  if (comparaison.signale) {
+    cellule.append(creer('span', 'precision ecart', `écart ${formaterMoyenne(comparaison.ecart)}`));
+  }
+  return cellule;
+}
+
+// Tableau « calculé / officiel » d'une UE : sa moyenne et ses deux pôles.
+function tableauComparaison(comparaisons) {
+  const tableau = creer('table', 'data-table comparaison');
+  tableau.append(creer('caption', null, 'Comparaison avec le relevé importé'));
+
+  const entete = creer('tr');
+  for (const [texte, classe] of [['Moyenne'], ['Calculé', 'num'], ['Officiel', 'num']]) {
+    const cellule = creer('th', classe, texte);
+    cellule.scope = 'col';
+    entete.append(cellule);
+  }
+  const tete = creer('thead');
+  tete.append(entete);
+
+  const corps = creer('tbody');
+  for (const [libelle, comparaison, calcule] of comparaisons) {
+    const rangee = creer('tr');
+    const nom = creer('th', null, libelle);
+    nom.scope = 'row';
+    rangee.append(nom, creer('td', 'num', formaterMoyenne(calcule)), celluleOfficiel(comparaison));
+    corps.append(rangee);
+  }
+  tableau.append(tete, corps);
+  return tableau;
+}
 
 // Tableau des moyennes de chaque ressource et partie SAE.
 function carteMoyennesLignes(lignes) {
@@ -533,9 +605,19 @@ function carteCompetences({ semestres: [impair, pair], competences }) {
   );
   carte.append(titre, aide);
 
+  // Moyennes officielles de l'année, si un relevé a été importé.
+  const officiels = etat.officiels.competences[impair] ?? {};
+  const avecOfficiel = competences.some((competence) => (officiels[competence.numero] ?? null) !== null);
+
   const tableau = creer('table', 'data-table');
   const entete = creer('tr');
-  for (const [texte, classe] of [['Compétence'], ['Moyenne', 'num'], ['Repère']]) {
+  const colonnes = [
+    ['Compétence'],
+    [avecOfficiel ? 'Calculé' : 'Moyenne', 'num'],
+    ...(avecOfficiel ? [['Officiel', 'num']] : []),
+    ['Repère'],
+  ];
+  for (const [texte, classe] of colonnes) {
     const cellule = creer('th', classe, texte);
     cellule.scope = 'col';
     entete.append(cellule);
@@ -543,8 +625,8 @@ function carteCompetences({ semestres: [impair, pair], competences }) {
   const corps = creer('tbody');
   for (const competence of competences) {
     const rangee = creer('tr');
-    // 3 colonnes seulement, pour tenir sur un téléphone : les UE sont écrites
-    // en petit sous le nom, et « provisoire » sous la moyenne.
+    // Peu de colonnes, pour tenir sur un téléphone : les UE sont écrites en
+    // petit sous le nom, et « provisoire » sous la moyenne.
     const nom = creer('th', null, `C${competence.numero}`);
     nom.scope = 'row';
     nom.append(creer('span', 'precision', competence.ues.join(' + ')));
@@ -556,7 +638,11 @@ function carteCompetences({ semestres: [impair, pair], competences }) {
     if (competence.moyenne !== null) {
       repere.append(badgeRepere(competence.moyenne, true));
     }
-    rangee.append(nom, moyenne, repere);
+    rangee.append(nom, moyenne);
+    if (avecOfficiel) {
+      rangee.append(celluleOfficiel(comparerOfficiel(competence.moyenne, officiels[competence.numero])));
+    }
+    rangee.append(repere);
     corps.append(rangee);
   }
   const tete = creer('thead');
@@ -725,6 +811,207 @@ champCible.addEventListener('input', () => {
   afficherErreurChamp(champCible, lireCible(champCible.value).erreur);
   afficherResultats();
 });
+
+/* ==================== Import des PDF ==================== */
+
+// Les deux imports : leur bouton, leur sélecteur de fichier, leur analyseur
+// (import-*.js) et leur remplissage (remplissage.js).
+const IMPORTS = {
+  coefficients: {
+    bouton: document.getElementById('btn-import-coefficients'),
+    fichier: document.getElementById('fichier-coefficients'),
+    analyser: importerCoefficients,
+    preparer: preparerImportCoefficients,
+    titre: 'Tableau des coefficients importé',
+  },
+  releve: {
+    bouton: document.getElementById('btn-import-releve'),
+    fichier: document.getElementById('fichier-releve'),
+    analyser: importerNotes,
+    preparer: preparerImportReleve,
+    titre: 'Relevé de notes importé',
+  },
+};
+
+// L'onglet d'un semestre (1 à 6).
+const ongletDu = (numero) => onglets.find((onglet) => Number(onglet.dataset.semestre) === numero);
+
+/**
+ * Importe un PDF : lecture, analyse, proposition de remplissage, confirmation
+ * si une saisie serait remplacée, puis application.
+ * Tant que la proposition n'est pas appliquée (étape 5), la saisie ne change
+ * pas : une erreur ou une annulation ne laisse rien à moitié rempli.
+ *
+ * @param {'coefficients'|'releve'} sorte
+ * @param {File} fichier
+ */
+async function importerFichier(sorte, fichier) {
+  const { analyser, preparer, titre } = IMPORTS[sorte];
+  patienter(true);
+  try {
+    // 1. Lecture du PDF. pdf.js n'est chargé qu'ici, au premier import.
+    const { lirePdf } = await import('./lecture-pdf.js');
+    const elements = await lirePdf(fichier);
+
+    // 2. Analyse, puis proposition de remplissage (fonctions pures et testées).
+    const proposition = preparer(etat.semestres, analyser(elements), nouvelId);
+    const numeros = Object.keys(proposition.semestres).map(Number);
+
+    // 3. Aucun semestre compris (mauvais PDF ?) : seulement le rapport.
+    if (numeros.length === 0) {
+      afficherRapport('Rien n’a pu être importé', proposition.rapport, numeros);
+      return;
+    }
+
+    // 4. Rien n'est écrasé en silence : on demande avant de remplacer une saisie.
+    if (proposition.remplaces.length > 0 && !window.confirm(messageConfirmation(proposition.remplaces))) {
+      afficherMessageImport('Import annulé', 'Rien n’a été modifié.');
+      return;
+    }
+
+    // 5. On applique la proposition, et on garde les moyennes officielles.
+    Object.assign(etat.semestres, proposition.semestres);
+    if (proposition.officiels) {
+      Object.assign(etat.officiels.ues, proposition.officiels.ues);
+      Object.assign(etat.officiels.competences, proposition.officiels.competences);
+    }
+
+    // 6. On montre le premier semestre importé (sauf si on y est déjà), puis le rapport.
+    if (numeros.includes(etat.semestreActif)) {
+      afficherSaisie();
+    } else {
+      choisirSemestre(ongletDu(numeros[0]), false);
+    }
+    afficherRapport(titre, proposition.rapport, numeros);
+  } catch (erreur) {
+    // ErreurLecturePdf : un message prévu pour toi. Autre erreur : un message
+    // général. Rien n'est journalisé : l'erreur pourrait citer le PDF.
+    const message =
+      erreur?.name === 'ErreurLecturePdf' ? erreur.message : 'Ce PDF n’a pas pu être lu. Rien n’a été modifié.';
+    afficherMessageImport('Import impossible', message);
+  } finally {
+    patienter(false);
+  }
+}
+
+// Pendant la lecture : boutons désactivés et message d'attente (lu par les
+// lecteurs d'écran grâce à role="status").
+function patienter(oui) {
+  for (const { bouton } of Object.values(IMPORTS)) {
+    bouton.disabled = oui;
+  }
+  sectionImport.setAttribute('aria-busy', String(oui));
+  etatImport.textContent = oui ? 'Lecture du PDF en cours…' : '';
+}
+
+// Affiche le rapport d'un import : compris, à compléter, à vérifier, écarté.
+function afficherRapport(titre, rapport, numeros) {
+  const blocs = [creer('h3', 'rapport__titre', titre)];
+  if (numeros.length > 0) {
+    const remplis = numeros.map((n) => `S${n}`).join(', ');
+    blocs.push(
+      creer('p', null, `${numeros.length === 1 ? 'Semestre rempli' : 'Semestres remplis'} : ${remplis}. Tout reste modifiable.`),
+    );
+  }
+  blocs.push(
+    partieRapport('Compris', rapport.compris.map((texte) => creer('li', null, texte)), 'compris'),
+    partieRapport('Coefficients à compléter', rapport.aCompleter.map(itemACompleter), 'completer'),
+    partieRapport('Pas compris ou à vérifier', rapport.aVerifier.map((texte) => creer('li', null, texte)), 'verifier'),
+  );
+
+  // Ce qui a été écarté exprès (en-tête personnel, lignes SENSE…) : replié.
+  if (rapport.ignores.length > 0) {
+    const details = creer('details', 'rapport__ecarte');
+    details.append(
+      creer('summary', null, `Écarté volontairement (${rapport.ignores.length})`),
+      creer('ul'),
+    );
+    details.querySelector('ul').append(...rapport.ignores.map((texte) => creer('li', null, texte)));
+    blocs.push(details);
+  }
+  montrerRapport(blocs);
+}
+
+// Un message court à la place du rapport (import annulé ou impossible).
+function afficherMessageImport(titre, message) {
+  montrerRapport([creer('h3', 'rapport__titre', titre), creer('p', null, message)]);
+}
+
+// Une partie du rapport : un titre et une liste. Rien si la liste est vide.
+function partieRapport(titre, items, sorte) {
+  if (items.length === 0) {
+    return null;
+  }
+  const partie = creer('section', `rapport__partie rapport__partie--${sorte}`);
+  const liste = creer('ul');
+  liste.append(...items);
+  partie.append(creer('h4', null, `${titre} (${items.length})`), liste);
+  return partie;
+}
+
+// Un champ à compléter : un lien qui ouvre le bon semestre et y place le curseur.
+function itemACompleter({ texte, cible }) {
+  const item = creer('li');
+  const lien = creer('a', null, texte);
+  lien.href = `#${idDuChamp(cible)}`;
+  lien.addEventListener('click', (event) => {
+    event.preventDefault();
+    allerAuChamp(cible);
+  });
+  item.append(lien);
+  return item;
+}
+
+// Identifiant du champ visé (voir creerLigneEvaluation et creerCaseCoef).
+function idDuChamp(cible) {
+  if (cible.champ === 'evaluation-coef') {
+    return `${cible.evaluation}-coef`;
+  }
+  // Coefficient d'une ligne : sa première case d'UE (ou son code, sans UE).
+  return cible.ue ? `${cible.element}-coef-${cible.ue}` : `${cible.element}-code`;
+}
+
+// Ouvre le semestre du champ, puis lui donne le focus.
+function allerAuChamp(cible) {
+  if (cible.semestre !== etat.semestreActif) {
+    choisirSemestre(ongletDu(cible.semestre), false);
+  }
+  const id = idDuChamp(cible);
+  if (document.getElementById(id)) {
+    donnerFocus(id);
+  } else {
+    annoncer('Ce champ n’existe plus : la ligne a été supprimée.');
+  }
+}
+
+// Affiche le rapport, avec un bouton pour le fermer, et lui donne le focus :
+// le lecteur d'écran lit son titre.
+function montrerRapport(blocs) {
+  const fermer = creer('button', 'btn btn--secondary btn--sm', 'Fermer le rapport');
+  fermer.type = 'button';
+  fermer.addEventListener('click', () => {
+    rapportImport.hidden = true;
+    rapportImport.replaceChildren();
+    IMPORTS.coefficients.bouton.focus();
+  });
+  blocs[0].id = 'titre-rapport';
+  rapportImport.replaceChildren(...blocs.filter(Boolean), fermer);
+  rapportImport.hidden = false;
+  rapportImport.focus();
+}
+
+for (const [sorte, { bouton, fichier }] of Object.entries(IMPORTS)) {
+  // Le bouton ouvre le sélecteur de fichier, caché.
+  bouton.addEventListener('click', () => fichier.click());
+  fichier.addEventListener('change', () => {
+    const choisi = fichier.files[0];
+    // On vide le sélecteur : choisir à nouveau le même fichier relancera l'import.
+    fichier.value = '';
+    if (choisi) {
+      importerFichier(sorte, choisi);
+    }
+  });
+}
 
 /* ==================== Choix du semestre (onglets accessibles) ==================== */
 // Modèle « tabs » de l'ARIA : un seul onglet atteignable avec Tab, on passe
