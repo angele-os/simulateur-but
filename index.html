@@ -30,27 +30,67 @@
     <section class="hero" aria-labelledby="titre">
       <p class="eyebrow">BUT INFORMATIQUE</p>
       <h1 id="titre">Simulateur de moyennes</h1>
-      <p class="lead">Saisis tes coefficients et tes notes : les moyennes des ressources, des pôles, des UE et des compétences se calculent en direct, avec la note à viser pour chaque évaluation. Tout reste sur ton appareil : rien n'est envoyé ni enregistré.</p>
+      <p class="lead">Choisis ton année et ton parcours : les coefficients officiels sont déjà là. Importe ton relevé ou saisis tes notes : les moyennes des ressources, des pôles, des UE et des compétences se calculent en direct, avec la note à viser pour chaque évaluation. Tout reste sur ton appareil : rien n'est envoyé ni enregistré.</p>
     </section>
 
     <noscript>
       <p class="noscript">Ce simulateur a besoin de JavaScript pour faire les calculs. Active JavaScript dans ton navigateur, puis recharge la page. Aucune donnée n'est envoyée : tout est calculé sur ton appareil.</p>
     </noscript>
 
-    <!-- ===== Import facultatif des PDF de l'ENT (un import peut remplir plusieurs semestres) ===== -->
+    <!-- ===== 1. Choix de l'année et du parcours : crée les semestres avec les coefficients officiels ===== -->
+    <section class="panel annee" id="annee" aria-labelledby="titre-annee">
+      <h2 class="annee__titre" id="titre-annee">Ton année</h2>
+      <p class="hint">Les UE, les ressources, les SAE et leurs coefficients officiels sont créés pour les deux semestres de l'année, sans aucune note. Tu peux aussi tout saisir à la main, plus bas.</p>
+      <!-- autocomplete="off" : le navigateur ne garde pas le choix après un rechargement. -->
+      <form class="annee__form" id="form-annee" autocomplete="off" novalidate>
+        <fieldset class="choix" id="choix-annee" aria-describedby="choix-annee-error">
+          <legend>Année</legend>
+          <div class="segments">
+            <label class="segment"><input type="radio" name="annee" value="1"><span>1re</span></label>
+            <label class="segment"><input type="radio" name="annee" value="2"><span>2e</span></label>
+            <label class="segment"><input type="radio" name="annee" value="3"><span>3e</span></label>
+          </div>
+          <p class="field-error" id="choix-annee-error"></p>
+        </fieldset>
+        <!-- Pas de parcours en 1re année (tronc commun) : app.js cache ce choix. -->
+        <fieldset class="choix" id="choix-parcours" aria-describedby="choix-parcours-error">
+          <legend>Parcours</legend>
+          <div class="segments">
+            <label class="segment"><input type="radio" name="parcours" value="DACS"><span>DACS</span></label>
+            <label class="segment"><input type="radio" name="parcours" value="RA"><span>RA</span></label>
+          </div>
+          <p class="field-error" id="choix-parcours-error"></p>
+        </fieldset>
+        <div class="annee__envoi">
+          <button class="btn btn--primary btn--sm" type="submit">Créer mes semestres</button>
+        </div>
+      </form>
+      <p class="annee__etat" id="annee-etat" role="status"></p>
+    </section>
+
+    <!-- ===== 2. Import facultatif des PDF de l'ENT (un import peut remplir plusieurs semestres) ===== -->
     <section class="panel import" id="import" aria-labelledby="titre-import">
-      <h2 class="import__titre" id="titre-import">Importer depuis l'ENT <span class="import__facultatif">(facultatif)</span></h2>
-      <p class="hint">Le tableau des coefficients et ton relevé « Détail des notes » pré-remplissent la saisie : tout reste modifiable. Les PDF sont lus sur ton appareil, rien n'est envoyé. L'en-tête du relevé (nom, n° de dossier…) n'est pas lu.</p>
+      <h2 class="import__titre" id="titre-import">Importer ton relevé <span class="import__facultatif">(facultatif)</span></h2>
+      <p class="hint">Ton relevé « Détail des notes », téléchargé sur l'ENT, pré-remplit tes notes : tout reste modifiable. Le PDF est lu sur ton appareil, rien n'est envoyé. Son en-tête (nom, n° de dossier…) n'est pas lu.</p>
       <div class="actions">
-        <button class="btn btn--secondary btn--sm" type="button" id="btn-import-coefficients" data-import="coefficients">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 21h14"/></svg>
-          Importer les coefficients (PDF)
-        </button>
-        <button class="btn btn--secondary btn--sm" type="button" id="btn-import-releve" data-import="releve">
+        <button class="btn btn--primary btn--sm" type="button" id="btn-import-releve" data-import="releve">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 21h14"/></svg>
           Importer mon relevé (PDF)
         </button>
       </div>
+      <!-- Menu « Avancé » : l'import du tableau ne sert que si l'IUT change ses coefficients. -->
+      <details class="avance">
+        <summary>Avancé</summary>
+        <div class="avance__corps">
+          <p class="hint">Les coefficients officiels sont déjà intégrés. Si l'IUT les change, importe son nouveau tableau des coefficients (PDF) : il met à jour les coefficients des semestres qu'il contient.</p>
+          <div>
+            <button class="btn btn--secondary btn--sm" type="button" id="btn-import-coefficients" data-import="coefficients">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 21h14"/></svg>
+              Importer les coefficients (PDF)
+            </button>
+          </div>
+        </div>
+      </details>
       <!-- Sélecteurs de fichier cachés : les boutons ci-dessus les ouvrent. -->
       <input type="file" id="fichier-coefficients" accept="application/pdf,.pdf" hidden>
       <input type="file" id="fichier-releve" accept="application/pdf,.pdf" hidden>

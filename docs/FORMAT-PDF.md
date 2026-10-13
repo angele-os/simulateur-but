@@ -53,6 +53,7 @@ Chaque PDF contient **deux semestres**, et chacun a sa propre ligne d'en-tête.
 
    Quand une ligne contient plusieurs codes, on garde **le dernier avant l'intitulé**. C'est le plus précis, et c'est celui du relevé de notes.
    - **Dans les vrais PDF, ce dernier code est collé au début de l'intitulé**, dans un seul élément texte : pdf.js renvoie `R4.08`, puis `R4.B.08 Virtualisation` d'un bloc. De même pour les SAE : `S4.01`, puis `SAE 4.01 Déploiement…` ; en BUT3, `SAE 5.A.01`, puis `SAE5.B.01 Evolution…`. On détache donc un code placé au début de l'élément qui suit les codes (en un mot, `R4.B.08`, ou en deux, `SAE 2.01`), à condition qu'il reste un intitulé derrière. Sans cela, `R4.B.08` passe dans l'intitulé, et le code gardé est `R4.08`, celui que le relevé n'utilise pas.
+   - En BUT1, le code est même collé **sans espace** : `R2.01Développement orienté objets`. On coupe alors là où une lettre suit les chiffres du code.
    - Les autres codes de la ligne sont gardés comme **alias** (`R4.08`). Une note du relevé est rattachée à la ligne dont le code **ou un alias** correspond.
    - Une **ressource** du relevé qui ne correspond à aucune ligne du tableau n'est pas ajoutée en silence : elle est signalée dans « à vérifier » (ses notes sont gardées, sans coefficient).
 3. **Ranger chaque nombre de la ligne dans la colonne UE dont le centre est le plus proche horizontalement.** Exemple inventé : `R9.01 Initiation 30 12`, avec 30 sous `UE9.1` et 12 sous `UE9.4`.
@@ -65,6 +66,15 @@ Chaque PDF contient **deux semestres**, et chacun a sa propre ligne d'en-tête.
    - la ligne ECTS, c'est-à-dire tout nombre qui n'est pas sur une ligne portant un code.
 7. **Le portfolio peut n'avoir aucun coefficient**, par exemple aux semestres 1, 3 et 5. Il ne compte alors pas.
 8. **Le poids des SAE varie selon le semestre** : 40, 50 ou 60 sur 100. On ne le code jamais en dur, on le lit dans le tableau.
+
+### Référentiel intégré (`data/referentiel.json`)
+Les cinq tableaux de l'IUT (BUT1 tronc commun, BUT2 et BUT3 en parcours RA et DACS) sont des documents **publics**. Leurs coefficients sont donc dans le dépôt, mais **pas les PDF**, qui restent dans `prive/` (ignoré par Git).
+- `npm run referentiel` (`scripts/generer-referentiel.mjs`) lit ces PDF avec le build « legacy » de pdf.js pour Node, et `elementsDeLaPage` de `js/lecture-pdf.js` : les positions sont les mêmes que dans l'app. Il passe chaque tableau dans `importerCoefficients` et **s'arrête sans rien écrire** à la moindre erreur (total faux, code en double, semestre inattendu).
+- Il écrit `data/referentiel.json` et `data/referentiel.js` (le même objet, en module ES). La page ne peut pas lire le `.json` : la CSP `connect-src 'none'` bloque `fetch` et l'import de JSON. Un module `.js` se charge comme les autres scripts (`script-src 'self'`).
+- Pour chaque année et chaque parcours, il donne : le document d'origine et sa date de création, les deux semestres, leurs UE avec leurs totaux imprimés (`totalSae`, `totalRessources`), et chaque ligne (type, code, alias, intitulé, coefficient par UE).
+- **Les tableaux ne donnent pas l'intitulé des UE** : il vaut `null`. Le relevé, une fois importé, complète l'intitulé des UE.
+- En BUT3, les UE du parcours RA sont 5.1, 5.2 et 5.6 (6.1, 6.2, 6.6) ; celles du parcours DACS sont 5.1, 5.3 et 5.6.
+- Le choix « année + parcours » de l'interface (`js/choix-annee.js`) crée les semestres de l'année à partir de ce référentiel, en passant par le même remplissage que l'import du PDF.
 
 ---
 

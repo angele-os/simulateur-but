@@ -947,7 +947,114 @@ select.input {
   color: #6b4410;
 }
 
-/* ========== 7 bis. Import des PDF ========== */
+/* ========== 7 bis. Choix de l'année et du parcours ========== */
+.annee {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: .75rem;
+  margin-bottom: 1.5rem;
+}
+
+.annee__titre {
+  font-size: 1.3rem;
+}
+
+.annee__form {
+  display: flex;
+  flex-wrap: wrap;
+  /* Alignés par le haut : un message d'erreur sous un groupe ne décale pas l'autre. */
+  align-items: flex-start;
+  gap: 1rem 1.5rem;
+}
+
+/* Le bouton « Créer mes semestres » a sa propre ligne, sous les choix. */
+.annee__envoi {
+  flex-basis: 100%;
+}
+
+/* Un groupe de choix (Année, Parcours) : légende au-dessus des boutons */
+.choix {
+  display: grid;
+  gap: .4rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.choix legend {
+  padding: 0;
+  margin-bottom: .4rem;
+}
+
+/* Boutons radio présentés comme les onglets (une « pilule » par choix).
+   Le vrai bouton radio reste dans la page : clavier (flèches) et lecteurs
+   d'écran fonctionnent comme pour tout groupe de boutons radio. */
+.segments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: .25rem;
+  padding: .3rem;
+  border-radius: 999px;
+  background: rgba(90, 35, 95, .055);
+  border: 1px solid var(--line);
+}
+
+.segment {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 4.5rem;
+  padding: .45rem 1.1rem;
+  border-radius: 999px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background-color .3s var(--ease), color .3s var(--ease);
+}
+
+/* Le rond du bouton radio est invisible, mais toujours là (et cliquable). */
+.segment input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.segment:hover {
+  color: var(--text);
+  background: rgba(90, 35, 95, .06);
+}
+
+.segment:has(input:checked) {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 6px 16px -8px rgba(90, 35, 95, .55);
+}
+
+/* Le focus clavier se voit sur la pilule (le rond, lui, est invisible). */
+.segment:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Choix manquant : la pilule entière est bordée de rouge (message en dessous). */
+.choix--erreur .segments {
+  border-color: var(--error-line);
+}
+
+.annee__etat {
+  font-size: .92rem;
+  color: var(--text);
+}
+
+.annee__etat:empty {
+  display: none;
+}
+
+/* ========== 7 ter. Import des PDF ========== */
 .import {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -1028,6 +1135,28 @@ select.input {
 
 .rapport > .btn {
   justify-self: start;
+}
+
+/* Menu « Avancé » (import du tableau des coefficients) : replié par défaut */
+.avance summary {
+  /* list-item : garde le triangle qui montre qu'on peut déplier. */
+  display: list-item;
+  width: fit-content;
+  padding-block: .65rem;
+  font-size: .9rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.avance summary:hover {
+  color: var(--text);
+}
+
+.avance__corps {
+  display: grid;
+  gap: .6rem;
+  padding-top: .25rem;
 }
 
 /* ========== 8. Responsive ========== */

@@ -66,6 +66,22 @@ describe('sécurité de index.html', () => {
   });
 });
 
+describe('choix de l’année et menu « Avancé »', () => {
+  test('le choix de l’année n’est pas mémorisé (autocomplete="off") ni envoyé (ni action ni method)', () => {
+    const formulaire = html.match(/<form[^>]*id="form-annee"[^>]*>/)?.[0];
+    assert.ok(formulaire, 'formulaire du choix de l’année absent');
+    assert.match(formulaire, /autocomplete="off"/);
+    assert.doesNotMatch(formulaire, /\b(action|method)=/);
+  });
+
+  test('l’import des coefficients est rangé dans le menu « Avancé »', () => {
+    const avance = html.match(/<details class="avance">[\s\S]*?<\/details>/)?.[0] ?? '';
+    assert.match(avance, /<summary>Avancé<\/summary>/);
+    assert.match(avance, /id="btn-import-coefficients"/);
+    assert.doesNotMatch(avance, /id="btn-import-releve"/);
+  });
+});
+
 describe('code JavaScript', () => {
   test('aucun code n’écrit du HTML (innerHTML, outerHTML, insertAdjacentHTML, document.write)', () => {
     for (const fichier of fichiersJs) {

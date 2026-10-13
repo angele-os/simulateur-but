@@ -31,6 +31,9 @@ import {
 import { importerCoefficients } from './import-coefficients.js';
 import { importerNotes } from './import-notes.js';
 import { preparerImportCoefficients, preparerImportReleve, messageConfirmation } from './remplissage.js';
+import { parcoursDe, semestresDe, nomAnnee, creerSemestresAnnee } from './choix-annee.js';
+// Le référentiel des coefficients officiels (généré par scripts/generer-referentiel.mjs).
+import referentiel from '../data/referentiel.js';
 // lecture-pdf.js (et donc pdf.js) n'est chargé qu'au premier import, avec
 // import() : la saisie manuelle fonctionne toujours, même sans lui.
 
@@ -992,7 +995,8 @@ function montrerRapport(blocs) {
   fermer.addEventListener('click', () => {
     rapportImport.hidden = true;
     rapportImport.replaceChildren();
-    IMPORTS.coefficients.bouton.focus();
+    // (Le bouton des coefficients est dans le menu « Avancé », souvent replié.)
+    IMPORTS.releve.bouton.focus();
   });
   blocs[0].id = 'titre-rapport';
   rapportImport.replaceChildren(...blocs.filter(Boolean), fermer);
@@ -1046,6 +1050,99 @@ onglets.forEach((onglet, i) => {
     }
   });
 });
+
+/* ==================== Choix de l'année et du parcours ==================== */
+// Le choix crée les deux semestres de l'année à partir du référentiel, puis
+// il est oublié : rien n'est stocké. (autocomplete="off" sur le formulaire :
+// le navigateur ne le remet pas non plus après un rechargement.)
+
+const formAnnee = document.getElementById('form-annee');
+const choixAnnee = document.getElementById('choix-annee');
+const choixParcours = document.getElementById('choix-parcours');
+const etatAnnee = document.getElementById('annee-etat');
+
+// Valeur cochée d'un groupe de boutons radio (« 2 », « DACS »), ou '' si aucune.
+const valeurCochee = (nom) => formAnnee.elements[nom].value;
+
+// Pas de choix de parcours en 1re année (tronc commun) : on le cache.
+// Tant qu'aucune année n'est cochée, il reste visible.
+function afficherChoixParcours() {
+  const annee = Number(valeurCochee('annee'));
+  choixParcours.hidden = annee !== 0 && parcoursDe(referentiel, annee).length <= 1;
+}
+
+// Affiche (ou efface) le message d'erreur d'un groupe de choix.
+function signalerChoix(groupe, message) {
+  groupe.querySelector('.field-error').textContent = message ?? '';
+  groupe.classList.toggle('choix--erreur', Boolean(message));
+}
+
+formAnnee.addEventListener('change', (event) => {
+  if (event.target.name === 'annee') {
+    afficherChoixParcours();
+  }
+  signalerChoix(event.target.closest('.choix'), null);
+});
+
+formAnnee.addEventListener('submit', (event) => {
+  // Rien n'est envoyé : on empêche le navigateur de « soumettre » le formulaire.
+  event.preventDefault();
+
+  // 1. L'année, puis le parcours (le seul proposé en 1re année : « commun »).
+  const annee = Number(valeurCochee('annee'));
+  if (!annee) {
+    signalerChoix(choixAnnee, 'Choisis ton année.');
+    choixAnnee.querySelector('input').focus();
+    return;
+  }
+  const proposes = parcoursDe(referentiel, annee);
+  const parcours = proposes.length === 1 ? proposes[0] : valeurCochee('parcours');
+  if (!proposes.includes(parcours)) {
+    signalerChoix(choixParcours, 'Choisis ton parcours.');
+    choixParcours.querySelector('input').focus();
+    return;
+  }
+
+  // 2. Les semestres de l'année ont déjà une saisie : on demande avant de la remplacer.
+  const numeros = semestresDe(annee);
+  const actuels = Object.fromEntries(numeros.map((numero) => [numero, etat.semestres[numero]]));
+  if (
+    contientDesDonnees(actuels) &&
+    !window.confirm(
+      `Remplacer tout ce qui est saisi en S${numeros[0]} et S${numeros[1]} (notes comprises) par les semestres officiels de la ${nomAnnee(annee)} année ?`,
+    )
+  ) {
+    return;
+  }
+
+  // 3. On crée les semestres (fonction pure et testée, voir choix-annee.js).
+  //    Les moyennes officielles de ces semestres venaient d'un ancien relevé :
+  //    on les oublie.
+  const semestres = creerSemestresAnnee(referentiel, annee, parcours, nouvelId);
+  Object.assign(etat.semestres, semestres);
+  for (const numero of numeros) {
+    delete etat.officiels.ues[numero];
+  }
+  delete etat.officiels.competences[numeros[0]];
+
+  // 4. Les cartes créées sont repliées : sans note, la page reste courte, et
+  //    on ouvre celle dont on veut saisir les notes.
+  for (const semestre of Object.values(semestres)) {
+    for (const element of semestre.elements) {
+      cartesRepliees.add(element.id);
+    }
+  }
+
+  // 5. On montre le premier semestre de l'année, et on dit ce qui a été créé
+  //    (zone role="status" : lue par les lecteurs d'écran).
+  choisirSemestre(ongletDu(numeros[0]), false);
+  const nom = parcours === 'commun' ? `${nomAnnee(annee)} année` : `${nomAnnee(annee)} année, parcours ${parcours}`;
+  etatAnnee.textContent =
+    `${nom} : S${numeros[0]} et S${numeros[1]} créés, avec leurs UE, leurs ressources, leurs SAE et leurs coefficients officiels. ` +
+    'Importe ton relevé ou saisis tes notes.';
+});
+
+afficherChoixParcours();
 
 /* ==================== Avant de fermer l'onglet ==================== */
 // Rien n'est enregistré : si une saisie est en cours, le navigateur demande

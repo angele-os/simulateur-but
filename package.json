@@ -4,7 +4,8 @@
   "description": "",
   "scripts": {
     "test": "node --test \"tests/**/*.test.js\"",
-    "vendor": "node scripts/copier-pdfjs.js"
+    "vendor": "node scripts/copier-pdfjs.js",
+    "referentiel": "node scripts/generer-referentiel.mjs"
   },
   "repository": {
     "type": "git",

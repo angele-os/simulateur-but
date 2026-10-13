@@ -104,6 +104,8 @@ export function regrouperEnLignes(elements) {
  *   // sans aucun coefficient (portfolio du S1…) y figure aussi, avec coefs = {}.
  *   // alias : les autres codes de la ligne (« R4.08 » pour « R4.08 R4.B.08 »).
  *   lignes: { type: 'sae'|'ressource', code: string, alias: string[], libelle: string, coefs: Object<string, number> }[],
+ *   // Les totaux imprimés, par UE : { sae: { 'UE1.1': 40 }, ressources: …, general: … } (null si la ligne manque).
+ *   totaux: { sae: Object<string, number>|null, ressources: Object<string, number>|null, general: Object<string, number>|null },
  *   }[],
  *   rapport: {
  *     lu: { semestre: number, page: number, type: 'sae'|'ressource', code: string, alias: string[], libelle: string, coefs: Object<string, number> }[],
@@ -310,6 +312,7 @@ function rangerNombres(nombres, ligne, semestre, rapport, nomLigne) {
  * « R4.B.08 Virtualisation » d'un seul bloc.
  *   « R4.B.08 Virtualisation »  → { code: 'R4.B.08', reste: 'Virtualisation' }
  *   « SAE 2.01 Développement… » → { code: 'SAE 2.01', reste: 'Développement…' }
+ *   « R2.01Développement… »     → { code: 'R2.01', reste: 'Développement…' } (sans espace, BUT1)
  *   « Virtualisation »          → null (pas de code au début)
  *
  * @param {string} texte
@@ -317,13 +320,22 @@ function rangerNombres(nombres, ligne, semestre, rapport, nomLigne) {
  */
 function separerCodeColle(texte) {
   const mots = texte.split(/\s+/);
-  // On essaie d'abord un code en deux mots (« SAE 2.01 »), puis en un mot
-  // (« R4.B.08 »). Il doit rester au moins un mot pour l'intitulé.
+
+  // 1. On essaie d'abord un code en deux mots (« SAE 2.01 »), puis en un mot
+  //    (« R4.B.08 »). Il doit rester au moins un mot pour l'intitulé.
   for (const nombreDeMots of [2, 1]) {
     const debut = mots.slice(0, nombreDeMots).join(' ');
     if (mots.length > nombreDeMots && estUnCode(debut)) {
       return { code: debut, reste: mots.slice(nombreDeMots).join(' ') };
     }
+  }
+
+  // 2. Code collé SANS espace : « R2.01Développement ». On coupe le premier
+  //    mot au premier endroit où une lettre suit un chiffre (\p{L} : une
+  //    lettre, accents compris), et on garde la coupe si le début est un code.
+  const coupe = /^(.*?\d)(\p{L}.*)$/u.exec(mots[0]);
+  if (coupe !== null && estUnCode(coupe[1])) {
+    return { code: coupe[1], reste: [coupe[2], ...mots.slice(1)].join(' ') };
   }
   return null;
 }
@@ -452,7 +464,9 @@ function construireSemestre(semestre, rapport) {
   // Les lignes servent à remplir la saisie, qui range les coefficients ligne
   // par ligne (une ressource et son coefficient dans chaque UE).
   const lignes = semestre.lignes.map(({ type, code, alias, libelle, coefs }) => ({ type, code, alias, libelle, coefs }));
-  return { numero: semestre.numero, ues, lignes };
+  // Les totaux IMPRIMÉS (lignes « TOTAL SAE »…), tels quels : null si la
+  // ligne manque. Le référentiel les garde pour son propre contrôle.
+  return { numero: semestre.numero, ues, lignes, totaux: semestre.totaux };
 }
 
 /**

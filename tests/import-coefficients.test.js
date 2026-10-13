@@ -515,6 +515,14 @@ describe('code collé à l’intitulé (fixture inventée, forme des vrais table
     ]);
   });
 
+  test('code collé SANS espace (« R9.B.02Ressource… », vu en BUT1) : détaché aussi', () => {
+    const resultat = importerCoefficients(
+      tableauMinimal(ligne(600, ['R9.02', 'R9.B.02Ressource collée'])),
+    );
+    const lue = resultat.rapport.lu.find((l) => l.code === 'R9.B.02');
+    assert.deepEqual([lue.alias, lue.libelle], [['R9.02'], 'Ressource collée']);
+  });
+
   test('un intitulé qui ne commence pas par un code n’est pas découpé', () => {
     const resultat = importerCoefficients(
       tableauMinimal(ligne(600, ['R9.02', 'Réseaux R9.03 avancés'])),

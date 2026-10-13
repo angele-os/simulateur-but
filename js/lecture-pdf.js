@@ -270,39 +270,57 @@ async function extraireElements(tache) {
     //    une unité vaut un point, comme dans le fichier.
     const viewport = page.getViewport({ scale: 1 });
 
-    for (const element of contenu.items) {
-      // 4. On ne garde que les vrais morceaux de texte, non vides.
-      //    (pdf.js peut aussi renvoyer des marqueurs sans texte.)
-      if (typeof element.str !== 'string' || element.str.trim() === '') {
-        continue;
-      }
+    // 4. Les éléments texte de la page (voir elementsDeLaPage).
+    elements.push(...elementsDeLaPage(contenu.items, viewport, numero));
 
-      // 5. Position et taille sur la page affichée (voir positionAffichee).
-      const { x, y, taille } = positionAffichee(element.transform, viewport);
-
-      // 6. On écarte le filigrane AVANT tout le reste.
-      if (taille > TAILLE_MAX_TEXTE) {
-        continue;
-      }
-
-      // 7. largeur = longueur du texte, en points, mesurée le long de la
-      //    ligne : la rotation de la page ne la change pas. Elle sert à
-      //    calculer le centre d'un élément (x + largeur / 2), pour le ranger
-      //    dans la bonne colonne d'un tableau.
-      elements.push({
-        texte: element.str.trim(),
-        x,
-        y,
-        taille,
-        largeur: element.width,
-        page: numero,
-      });
-    }
-
-    // 8. On libère la mémoire de la page lue.
+    // 5. On libère la mémoire de la page lue.
     page.cleanup();
   }
 
+  return elements;
+}
+
+/**
+ * Transforme le texte brut d'une page (renvoyé par pdf.js) en éléments
+ * { texte, x, y, taille, largeur, page }.
+ *
+ * Fonction pure : scripts/generer-referentiel.mjs l'utilise aussi, dans
+ * Node, pour lire les tableaux des coefficients exactement comme l'app.
+ *
+ * @param {{ str?: string, transform: number[], width: number }[]} items page.getTextContent().items
+ * @param {{ transform: number[], height: number }} viewport page.getViewport({ scale: 1 })
+ * @param {number} numero numéro de la page (à partir de 1)
+ */
+export function elementsDeLaPage(items, viewport, numero) {
+  const elements = [];
+  for (const element of items) {
+    // 1. On ne garde que les vrais morceaux de texte, non vides.
+    //    (pdf.js peut aussi renvoyer des marqueurs sans texte.)
+    if (typeof element.str !== 'string' || element.str.trim() === '') {
+      continue;
+    }
+
+    // 2. Position et taille sur la page affichée (voir positionAffichee).
+    const { x, y, taille } = positionAffichee(element.transform, viewport);
+
+    // 3. On écarte le filigrane AVANT tout le reste.
+    if (taille > TAILLE_MAX_TEXTE) {
+      continue;
+    }
+
+    // 4. largeur = longueur du texte, en points, mesurée le long de la
+    //    ligne : la rotation de la page ne la change pas. Elle sert à
+    //    calculer le centre d'un élément (x + largeur / 2), pour le ranger
+    //    dans la bonne colonne d'un tableau.
+    elements.push({
+      texte: element.str.trim(),
+      x,
+      y,
+      taille,
+      largeur: element.width,
+      page: numero,
+    });
+  }
   return elements;
 }
 
