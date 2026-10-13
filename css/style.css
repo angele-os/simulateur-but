@@ -1,0 +1,1005 @@
+/* simulateur-but — styles
+   Identité visuelle reprise de net-toolkit (portfolio ange-bonkoski.fr) : mêmes variables,
+   mêmes polices, même effet verre.
+   Organisation : polices → variables → base → mise en page → composants → saisie → résultats
+   → responsive → accessibilité. */
+
+/* ========== 1. Polices auto-hébergées (licence SIL OFL 1.1, voir fonts/README.md) ========== */
+@font-face {
+  font-family: 'Inter';
+  src: url('../fonts/inter-latin-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;   /* police variable : toutes les graisses dans un seul fichier */
+  font-style: normal;
+  font-display: swap;     /* affiche le texte tout de suite avec une police de secours */
+}
+
+@font-face {
+  font-family: 'Fraunces';
+  src: url('../fonts/fraunces-latin-opsz-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ========== 2. Variables (identiques à net-toolkit) ========== */
+:root {
+  --white: #fffdf6;
+  --bg: #FFF8DF;
+  --bg-deep: #F7EBBE;
+
+  --accent: #5A235F;
+  --accent-deep: #3E1841;
+  --accent-soft: rgba(90, 35, 95, .14);
+  --accent-glow: rgba(90, 35, 95, .28);
+
+  --text: #4C1F50;
+  --text-dim: #6E4A75;
+  --text-faint: #7E5C86;
+
+  --line: rgba(90, 35, 95, .14);
+  --line-soft: rgba(90, 35, 95, .09);
+  --line-strong: rgba(90, 35, 95, .28);
+
+  --error: #c81e1e;
+  --error-bg: rgba(220, 38, 38, .08);
+  --error-line: rgba(220, 38, 38, .3);
+
+  --r-lg: 32px;
+  --r-md: 22px;
+  --r-sm: 14px;
+  --ease: cubic-bezier(.16, 1, .3, 1);
+
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  --display: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Menlo', 'Consolas', monospace;
+
+  /* Marge latérale de la page */
+  --gutter: clamp(1rem, 4vw, 3rem);
+}
+
+/* ========== 3. Base ========== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--sans);
+  line-height: 1.55;
+  color: var(--text);
+  /* Fond crème + taches violettes très diffuses en haut de page (sans animation) */
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 70rem 34rem at 12% -8%, rgba(90, 35, 95, .14), transparent 62%),
+    radial-gradient(ellipse 56rem 30rem at 92% -6%, rgba(90, 35, 95, .08), transparent 60%),
+    radial-gradient(ellipse 44rem 24rem at 55% 2%, rgba(90, 35, 95, .1), transparent 70%);
+  background-repeat: no-repeat;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+p {
+  margin: 0;
+  color: var(--text-dim);
+}
+
+a {
+  color: var(--accent);
+  text-underline-offset: .2em;
+}
+
+a:hover {
+  color: var(--accent-deep);
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+/* Focus clavier bien visible sur tous les éléments interactifs */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* L'attribut hidden cache toujours l'élément, même avec un display: grid ou flex. */
+[hidden] {
+  display: none !important;
+}
+
+/* Masqué à l'écran mais lu par les lecteurs d'écran */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Liens d'évitement : invisibles tant qu'ils n'ont pas le focus clavier */
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 10;
+  padding: .7rem 1.2rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: 1rem;
+  color: #fff;
+}
+
+/* ========== 4. Mise en page ========== */
+.wrap {
+  width: min(1180px, 100% - 2 * var(--gutter));
+  margin-inline: auto;
+}
+
+.site-header__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 1rem;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 800;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.header-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: .92rem;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.hero {
+  padding-block: clamp(1.5rem, 5vw, 3.25rem) clamp(1.25rem, 3vw, 2rem);
+}
+
+.eyebrow {
+  margin-bottom: .9rem;
+  font-family: var(--mono);
+  font-size: .78rem;
+  letter-spacing: .04em;
+  color: var(--text-dim);
+}
+
+.hero h1 {
+  font-size: clamp(2rem, 5.5vw, 3.4rem);
+  line-height: 1.1;
+}
+
+.lead {
+  margin-top: 1rem;
+  max-width: 62ch;
+  font-size: 1.05rem;
+}
+
+/* Panneau en effet verre */
+.panel {
+  padding: clamp(1rem, 3.5vw, 2rem);
+  background: rgba(255, 253, 246, .58);
+  border: 1px solid rgba(255, 253, 246, .85);
+  border-radius: var(--r-md);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  backdrop-filter: blur(28px) saturate(170%);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, .95),
+    inset 0 -1px 0 rgba(90, 35, 95, .06),
+    0 0 0 1px rgba(90, 35, 95, .05),
+    0 8px 20px -10px var(--accent-glow),
+    0 34px 64px -30px rgba(90, 35, 95, .4);
+}
+
+/* Saisie puis résultats ; côte à côte sur grand écran (voir Responsive) */
+.app {
+  display: grid;
+  /* minmax(0, 1fr) : la colonne ne dépasse jamais la largeur de l'écran */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+  margin-bottom: 4rem;
+}
+
+/* Par défaut, un élément de grille refuse d'être plus étroit que son contenu
+   le plus large : sur téléphone, la page débordait à droite. */
+.app > * {
+  min-width: 0;
+}
+
+/* Même raison pour toutes les grilles à une seule colonne de la page. */
+.saisie,
+.resultats,
+.resultats__contenu,
+.bloc,
+.liste,
+.element__corps,
+.groupe,
+.evaluations,
+.ue-resultat {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.site-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--line);
+}
+
+.site-footer__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem 1.5rem;
+  padding-block: 1.5rem 2rem;
+}
+
+.site-footer p {
+  font-size: .82rem;
+  color: var(--text-faint);
+}
+
+.site-footer a {
+  display: inline-block;
+  padding-block: .6rem; /* zone cliquable plus haute */
+  color: var(--text-dim);
+}
+
+/* ========== 5. Composants (repris de net-toolkit) ========== */
+
+/* Message affiché quand JavaScript est désactivé */
+.noscript {
+  margin-bottom: 1.5rem;
+  padding: .9rem 1.1rem;
+  color: var(--text);
+  background: var(--white);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+}
+
+/* Onglets (comme le sélecteur de langue du portfolio) */
+.tabs {
+  display: flex;
+  gap: .25rem;
+  margin-bottom: 1.5rem;
+  padding: .3rem;
+  border-radius: 999px;
+  background: rgba(90, 35, 95, .055);
+  border: 1px solid var(--line);
+}
+
+.tab {
+  flex: 1;
+  min-height: 44px;
+  padding: .45rem .6rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: .92rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background-color .3s var(--ease), color .3s var(--ease);
+}
+
+.tab:hover {
+  color: var(--text);
+  background: rgba(90, 35, 95, .06);
+}
+
+.tab[aria-selected='true'] {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 6px 16px -8px rgba(90, 35, 95, .55);
+}
+
+/* Champs */
+.field {
+  display: grid;
+  gap: .4rem;
+  align-content: start;
+  min-width: 0;
+}
+
+.field--court {
+  max-width: 16rem;
+}
+
+label,
+legend {
+  font-size: .92rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.hint {
+  font-size: .84rem;
+  color: var(--text-faint);
+}
+
+.hint strong {
+  color: var(--text-dim);
+}
+
+.input {
+  width: 100%;
+  min-height: 48px;
+  padding: .7rem 1rem;
+  font: inherit;
+  font-size: 1rem; /* 16px : évite le zoom automatique de Safari sur iPhone */
+  color: var(--text);
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  box-shadow: inset 0 1px 2px rgba(90, 35, 95, .05);
+  transition: border-color .25s var(--ease);
+}
+
+.input:focus {
+  border-color: var(--accent);
+}
+
+.input::placeholder {
+  color: var(--text-faint);
+  opacity: 1;
+}
+
+/* Nombres : chiffres de même largeur, alignés */
+.input--num {
+  font-variant-numeric: tabular-nums;
+}
+
+select.input {
+  cursor: pointer;
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--error);
+}
+
+.field-error {
+  padding: .45rem .7rem;
+  font-size: .85rem;
+  color: var(--error);
+  background: var(--error-bg);
+  border: 1px solid var(--error-line);
+  border-radius: 10px;
+}
+
+/* Pas d'erreur = pas de cadre rouge vide */
+.field-error:empty {
+  display: none;
+}
+
+/* Boutons en pilule */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .55rem;
+  min-height: 44px;
+  padding: .85rem 1.65rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font: inherit;
+  font-size: .95rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color .3s var(--ease), box-shadow .3s var(--ease), transform .3s var(--ease);
+}
+
+.btn--primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 10px 26px -10px rgba(90, 35, 95, .55);
+}
+
+.btn--primary:hover {
+  background: var(--accent-deep);
+}
+
+.btn--primary:active {
+  transform: translateY(1px);
+}
+
+.btn--secondary {
+  background: rgba(90, 35, 95, .05);
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.btn--secondary:hover {
+  background: rgba(90, 35, 95, .08);
+}
+
+.btn--secondary:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+/* Suppression d'une ligne entière : discret, mais en rouge */
+.btn--danger {
+  background: transparent;
+  border-color: var(--error-line);
+  color: var(--error);
+}
+
+.btn--danger:hover {
+  background: var(--error-bg);
+}
+
+.btn--sm {
+  padding: .6rem 1.1rem;
+  font-size: .88rem;
+}
+
+/* Bouton rond avec seulement une icône (supprimer une ligne) */
+.btn-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(90, 35, 95, .05);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background-color .3s var(--ease), color .3s var(--ease);
+}
+
+.btn-icon:hover {
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.icon {
+  width: 1.1em;
+  height: 1.1em;
+  flex: none;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+/* Cartes (comme les cartes projets du portfolio) */
+.card {
+  padding: clamp(1rem, 3vw, 1.4rem);
+  background: var(--white);
+  border-radius: var(--r-md);
+  box-shadow:
+    0 20px 45px -32px rgba(90, 35, 95, .3),
+    0 2px 8px -3px rgba(90, 35, 95, .06);
+}
+
+.card h3 {
+  font-size: 1.1rem;
+}
+
+/* Tableaux */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .9rem;
+}
+
+.data-table thead th {
+  padding: .6rem .5rem;
+  font-family: var(--mono);
+  font-size: .68rem;
+  font-weight: 500;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--text-faint);
+  border-bottom: 1px solid var(--line);
+}
+
+.data-table td,
+.data-table tbody th {
+  padding: .6rem .5rem;
+  text-align: left;
+  vertical-align: top;
+  font-weight: 400;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.data-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.data-table .num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ========== 6. Saisie ========== */
+.saisie {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.saisie__titre,
+.resultats__titre {
+  font-size: 1.5rem;
+}
+
+/* Lien vers les résultats (caché sur grand écran, où ils sont à côté) */
+.lien-resultats {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: -1rem;
+  font-size: .92rem;
+  font-weight: 600;
+}
+
+/* « Rien n'est enregistré » : bien visible, sans le rouge des erreurs */
+.avis {
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+  padding: .9rem 1.1rem;
+  background: #fdecc0;
+  border: 2px solid #b7791f;
+  border-radius: var(--r-sm);
+}
+
+.avis p {
+  color: var(--text);
+}
+
+.avis__icone {
+  width: 1.4rem;
+  height: 1.4rem;
+  flex: none;
+  margin-top: .05rem;
+  color: #8a5a12;
+}
+
+/* Une section de la saisie (UE, ressources, SAE, malus) */
+.bloc {
+  display: grid;
+  gap: .75rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.bloc__titre {
+  font-size: 1.2rem;
+}
+
+.liste {
+  display: grid;
+  gap: .75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.liste:empty {
+  display: none;
+}
+
+.vide-texte {
+  font-size: .9rem;
+  color: var(--text-faint);
+}
+
+/* --- Ligne d'UE. Mobile : numéro | supprimer, puis l'intitulé --- */
+.ue-ligne {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'numero   suppr'
+    'intitule intitule';
+  gap: .75rem;
+  padding: .9rem;
+  background: rgba(255, 253, 246, .7);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+}
+
+.ue-ligne__numero { grid-area: numero; }
+.ue-ligne__intitule { grid-area: intitule; }
+
+.ue-ligne__suppr {
+  grid-area: suppr;
+  /* Aligné sur le champ : on saute la hauteur du libellé (1 ligne) + l'espace */
+  margin-top: calc(.92rem * 1.55 + .4rem);
+}
+
+/* --- Carte d'une ressource ou d'une partie SAE (dépliable) --- */
+.element {
+  background: rgba(255, 253, 246, .7);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+}
+
+.element__resume {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  min-height: 52px;
+  padding: .7rem 1rem;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  list-style: none; /* enlève le triangle par défaut… */
+}
+
+.element__resume::-webkit-details-marker {
+  display: none; /* … aussi dans Safari */
+}
+
+/* Chevron : pointe à droite quand c'est replié, vers le bas quand c'est déplié */
+.element__resume::before {
+  content: '';
+  flex: none;
+  width: .5rem;
+  height: .5rem;
+  margin-inline: .1rem .2rem;
+  border-right: 2px solid var(--accent);
+  border-bottom: 2px solid var(--accent);
+  transform: rotate(-45deg);
+  transition: transform .3s var(--ease);
+}
+
+.element__details[open] > .element__resume::before {
+  transform: rotate(45deg);
+}
+
+.element__titre {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--display);
+  font-size: 1.02rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.element__moyenne {
+  flex: none;
+  font-size: .85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+.element__corps {
+  display: grid;
+  gap: 1.1rem;
+  padding: .25rem 1rem 1rem;
+}
+
+.element__entete {
+  display: grid;
+  gap: .75rem;
+}
+
+/* Groupe de champs (fieldset sans cadre) */
+.groupe {
+  display: grid;
+  gap: .6rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.groupe legend {
+  padding: 0;
+  margin-bottom: .2rem;
+}
+
+/* Coefficients par UE : autant de petites cases que d'UE */
+.coefs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: .6rem;
+}
+
+/* --- Évaluations. Mobile : libellé, puis note | coef | supprimer --- */
+.evaluations {
+  display: grid;
+  gap: .6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.evaluations:empty {
+  display: none;
+}
+
+.evaluation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-areas:
+    'libelle libelle libelle'
+    'note    coef    suppr'
+    'viser   viser   viser';
+  gap: .6rem;
+  padding: .75rem;
+  background: var(--white);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+}
+
+.evaluation__libelle { grid-area: libelle; }
+.evaluation__note { grid-area: note; }
+.evaluation__coef { grid-area: coef; }
+.a-viser { grid-area: viser; }
+
+.evaluation__suppr {
+  grid-area: suppr;
+  margin-top: calc(.92rem * 1.55 + .4rem);
+}
+
+/* Note à viser sous une évaluation non notée */
+.a-viser {
+  font-size: .86rem;
+  color: var(--text-dim);
+}
+
+.a-viser strong {
+  color: var(--accent-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+.element__pied {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ========== 7. Résultats ========== */
+.resultats {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.resultats__contenu {
+  display: grid;
+  gap: 1rem;
+}
+
+.resultats__note {
+  font-size: .8rem;
+}
+
+/* Carte d'une UE */
+.ue-resultat {
+  display: grid;
+  gap: .7rem;
+}
+
+.ue-resultat__tete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .25rem 1rem;
+}
+
+.ue-resultat__intitule {
+  font-family: var(--sans);
+  font-size: .9rem;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.moyenne {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-deep);
+}
+
+.moyenne--vide {
+  font-size: 1rem;
+  font-family: var(--sans);
+  font-weight: 500;
+  color: var(--text-faint);
+}
+
+.etiquettes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+}
+
+/* Petites pastilles d'information (provisoire, repère) */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: .2rem .7rem;
+  border-radius: 999px;
+  font-size: .78rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* Dans un tableau, une pastille ne passe jamais sur deux lignes */
+.data-table .badge {
+  white-space: nowrap;
+}
+
+/* Petite précision sous une valeur de tableau (UE d'une compétence, « provisoire ») */
+.data-table .precision {
+  display: block;
+  font-size: .78rem;
+  color: var(--text-faint);
+}
+
+.badge--provisoire {
+  color: #6b4410;
+  background: #fdecc0;
+  border: 1px solid #e3b65a;
+}
+
+/* Repère par rapport à 10 : volontairement neutre (pas de vert ni de rouge, pas de verdict) */
+.badge--haut {
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  border: 1px solid var(--line-strong);
+}
+
+.badge--bas {
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px dashed var(--line-strong);
+}
+
+/* Pôles et malus : libellé à gauche, valeur à droite */
+.poles {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: .3rem 1rem;
+  margin: 0;
+  font-size: .9rem;
+}
+
+.poles dt {
+  color: var(--text-dim);
+}
+
+.poles dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.poles .hint {
+  font-size: .8rem;
+}
+
+.alerte {
+  padding: .5rem .75rem;
+  font-size: .85rem;
+  color: #6b4410;
+  background: #fdecc0;
+  border-radius: 10px;
+}
+
+/* ========== 8. Responsive ========== */
+
+/* Sous 760px : flou réduit (plus léger pour les téléphones) */
+@media (max-width: 759.98px) {
+  .panel {
+    -webkit-backdrop-filter: blur(14px) saturate(170%);
+    backdrop-filter: blur(14px) saturate(170%);
+  }
+}
+
+/* À partir de 480px : les onglets ne prennent que la place nécessaire */
+@media (min-width: 480px) {
+  .tabs {
+    display: inline-flex;
+    max-width: 100%;
+  }
+
+  .tab {
+    padding-inline: 1.1rem;
+  }
+}
+
+/* À partir de 600px : lignes sur une seule rangée */
+@media (min-width: 600px) {
+  .ue-ligne {
+    grid-template-columns: minmax(7rem, 9rem) minmax(0, 1fr) auto;
+    grid-template-areas: 'numero intitule suppr';
+  }
+
+  .element__entete {
+    grid-template-columns: minmax(7rem, 10rem) minmax(0, 1fr);
+  }
+
+  .evaluation {
+    grid-template-columns: minmax(0, 1fr) minmax(5.5rem, 7rem) minmax(5rem, 6rem) auto;
+    grid-template-areas:
+      'libelle note coef suppr'
+      'viser   viser viser viser';
+  }
+}
+
+/* À partir de 1080px : saisie et résultats côte à côte ; les résultats restent visibles
+   (position sticky) pendant qu'on fait défiler la saisie. */
+@media (min-width: 1080px) {
+  .app {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  }
+
+  .resultats {
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+  }
+
+  .lien-resultats {
+    display: none;
+  }
+}
+
+/* ========== 9. Mouvement réduit : on coupe toutes les transitions ========== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
