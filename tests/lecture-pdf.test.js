@@ -12,7 +12,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { positionAffichee } from '../js/lecture-pdf.js';
+import { positionAffichee, creerPolitiqueWorker, URL_WORKER, NOM_POLITIQUE } from '../js/lecture-pdf.js';
 import { importerNotes } from '../js/import-notes.js';
 
 const fixture = JSON.parse(readFileSync(new URL('fixtures/releve-tourne.json', import.meta.url), 'utf8'));
@@ -100,5 +100,50 @@ describe('relevé tourné de 90°, lu jusqu’au bout par importerNotes', () => 
     assert.deepEqual(resultat.semestres[0].elements[0].evaluations, [
       { libelle: 'Contrôle inventé - coef 1', note: 12.5, coef: 1, ue: null },
     ]);
+  });
+});
+
+describe('politique Trusted Types du worker de pdf.js', () => {
+  // Imitation de window.trustedTypes : elle note le nom demandé et renvoie
+  // les règles telles quelles (le vrai navigateur les enveloppe).
+  function fauxTrustedTypes() {
+    const noms = [];
+    return {
+      noms,
+      createPolicy(nom, regles) {
+        noms.push(nom);
+        return regles;
+      },
+    };
+  }
+
+  test('l’adresse du worker est celle de vendor/pdfjs/', () => {
+    assert.ok(URL_WORKER.endsWith('/vendor/pdfjs/pdf.worker.min.mjs'), URL_WORKER);
+  });
+
+  test('la politique s’appelle « pdfjs-worker », le nom autorisé par la CSP', () => {
+    const trustedTypes = fauxTrustedTypes();
+    creerPolitiqueWorker(trustedTypes, URL_WORKER);
+    assert.deepEqual(trustedTypes.noms, ['pdfjs-worker']);
+    assert.equal(NOM_POLITIQUE, 'pdfjs-worker');
+  });
+
+  test('elle n’accepte QUE l’adresse exacte du worker', () => {
+    const politique = creerPolitiqueWorker(fauxTrustedTypes(), URL_WORKER);
+    assert.equal(politique.createScriptURL(URL_WORKER), URL_WORKER);
+    for (const autre of [
+      'https://exemple.invalid/pdf.worker.min.mjs', // un autre site
+      URL_WORKER.replace('pdf.worker.min.mjs', 'pdf.min.mjs'), // un autre fichier de l'app
+      `${URL_WORKER}?x=1`, // la même adresse, modifiée
+      'data:text/javascript,alert(1)',
+    ]) {
+      assert.throws(() => politique.createScriptURL(autre), TypeError, autre);
+    }
+  });
+
+  test('sans Trusted Types (ancien navigateur) : l’adresse est rendue telle quelle, avec la même vérification', () => {
+    const politique = creerPolitiqueWorker(undefined, URL_WORKER);
+    assert.equal(politique.createScriptURL(URL_WORKER), URL_WORKER);
+    assert.throws(() => politique.createScriptURL('https://exemple.invalid/w.mjs'), TypeError);
   });
 });

@@ -13,10 +13,14 @@ import * as pdfjs from '../vendor/pdfjs/pdf.min.mjs';
 // Le worker est servi par l'app elle-même, à côté de pdf.min.mjs.
 // new URL(…, import.meta.url) calcule son adresse à partir de CE fichier,
 // et non de la page qui l'importe : le chemin reste juste partout.
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  '../vendor/pdfjs/pdf.worker.min.mjs',
-  import.meta.url,
-).href;
+export const URL_WORKER = new URL('../vendor/pdfjs/pdf.worker.min.mjs', import.meta.url).href;
+
+// Nom de la politique Trusted Types qui autorise ce worker. La CSP de
+// index.html n'autorise QUE ce nom : « trusted-types pdfjs-worker ».
+export const NOM_POLITIQUE = 'pdfjs-worker';
+
+// La politique, créée à la première lecture (un nom ne peut servir qu'une fois).
+let politiqueWorker = null;
 
 // Limites imposées au fichier, pour éviter de bloquer le navigateur.
 const TAILLE_MAX_OCTETS = 5 * 1024 * 1024; // 5 Mo
@@ -78,6 +82,59 @@ export function positionAffichee(transform, viewport) {
 }
 
 /**
+ * Crée la politique Trusted Types qui autorise le worker de pdf.js.
+ *
+ * La CSP (require-trusted-types-for 'script') interdit de donner une simple
+ * chaîne à new Worker(url) : le navigateur exige une adresse « approuvée »
+ * par une politique. Celle-ci n'approuve qu'UNE adresse, celle du worker
+ * servi par l'app. Toute autre adresse lève une erreur : même si un PDF
+ * piégé trompait pdf.js, il ne pourrait pas lancer un autre script.
+ *
+ * Elle reçoit trustedTypes en paramètre : on peut donc la tester sans
+ * navigateur, avec une imitation (tests/lecture-pdf.test.js).
+ *
+ * @param {object|undefined} trustedTypes window.trustedTypes (absent sur les anciens navigateurs)
+ * @param {string} urlAutorisee la seule adresse acceptée
+ * @returns {{ createScriptURL: (url: string) => (TrustedScriptURL|string) }}
+ */
+export function creerPolitiqueWorker(trustedTypes, urlAutorisee) {
+  // 1. La règle : l'adresse exacte du worker, rien d'autre.
+  const regles = {
+    createScriptURL(url) {
+      if (url !== urlAutorisee) {
+        throw new TypeError(`Adresse de worker refusée : ${url}`);
+      }
+      return url;
+    },
+  };
+
+  // 2. Navigateur sans Trusted Types : il accepte une simple chaîne. On
+  //    garde la même vérification, qui renvoie l'adresse telle quelle.
+  if (!trustedTypes) {
+    return regles;
+  }
+
+  // 3. Sinon, on déclare la politique au navigateur. Il n'accepte ce nom
+  //    que parce que la CSP l'autorise.
+  return trustedTypes.createPolicy(NOM_POLITIQUE, regles);
+}
+
+/**
+ * Lance le worker de pdf.js, avec une adresse approuvée par la politique.
+ *
+ * @returns {Worker}
+ */
+function lancerWorker() {
+  // 1. La politique est créée une seule fois : le navigateur refuse de
+  //    déclarer deux fois le même nom. (globalThis est « window » dans la
+  //    page ; il existe aussi dans Node, où ce fichier est testé.)
+  politiqueWorker ??= creerPolitiqueWorker(globalThis.trustedTypes, URL_WORKER);
+
+  // 2. type: 'module' : le worker de pdf.js est un module ES (.mjs).
+  return new Worker(politiqueWorker.createScriptURL(URL_WORKER), { type: 'module' });
+}
+
+/**
  * Lit toutes les pages d'un PDF et renvoie ses éléments texte.
  *
  * @param {File} fichier fichier choisi par l'utilisateur (<input type="file">)
@@ -92,20 +149,37 @@ export async function lirePdf(fichier) {
   const donnees = new Uint8Array(await fichier.arrayBuffer());
   verifierSignature(donnees);
 
-  // 3. On ouvre le document avec pdf.js.
-  const tache = pdfjs.getDocument({
-    data: donnees,
-    // Interdit à pdf.js de générer et d'exécuter du code (eval) :
-    // un PDF piégé ne peut pas s'en servir.
-    isEvalSupported: false,
-    // On ne fait que lire le texte : inutile de charger des polices.
-    disableFontFace: true,
-    // N'affiche dans la console que les vraies erreurs.
-    verbosity: pdfjs.VerbosityLevel.ERRORS,
-  });
+  // N'affiche dans la console que les vraies erreurs.
+  const verbosity = pdfjs.VerbosityLevel.ERRORS;
+  let worker = null; // le worker du navigateur (un fil d'exécution à part)
+  let pdfWorker = null; // l'objet de pdf.js qui lui parle
+  let tache = null; // la tâche de chargement du document
 
   try {
-    // 4. On lit toutes les pages, avec une durée maximale.
+    // 3. On lance NOUS-MÊMES le worker, avec une adresse approuvée (voir
+    //    lancerWorker). Si on laissait pdf.js le faire, il passerait une
+    //    simple chaîne à new Worker : la CSP la bloquerait, et pdf.js se
+    //    rabattrait sur un « faux worker » qui tourne dans la page.
+    worker = lancerWorker();
+
+    // 4. On confie ce worker à pdf.js. « port » : le canal par lequel
+    //    pdf.js lui envoie ses messages. Un nouveau worker par lecture :
+    //    rien ne reste d'un PDF à l'autre.
+    pdfWorker = new pdfjs.PDFWorker({ port: worker, verbosity });
+
+    // 5. On ouvre le document avec pdf.js, dans ce worker.
+    tache = pdfjs.getDocument({
+      data: donnees,
+      worker: pdfWorker,
+      // Interdit à pdf.js de générer et d'exécuter du code (eval) :
+      // un PDF piégé ne peut pas s'en servir.
+      isEvalSupported: false,
+      // On ne fait que lire le texte : inutile de charger des polices.
+      disableFontFace: true,
+      verbosity,
+    });
+
+    // 6. On lit toutes les pages, avec une durée maximale.
     return await avecDelai(
       extraireElements(tache),
       DELAI_MAX_MS,
@@ -114,9 +188,18 @@ export async function lirePdf(fichier) {
   } catch (erreur) {
     throw traduireErreur(erreur);
   } finally {
-    // 5. Dans tous les cas (réussite, erreur ou délai dépassé), on arrête
-    //    pdf.js : le worker s'arrête et le contenu du PDF quitte la mémoire.
-    await tache.destroy();
+    // 7. Dans tous les cas (réussite, erreur ou délai dépassé), on arrête
+    //    tout, dans l'ordre : le document, puis l'objet de pdf.js, puis le
+    //    worker lui-même. pdf.js n'arrête pas un worker qu'on lui a confié :
+    //    c'est à nous de le faire. Le contenu du PDF quitte alors la mémoire.
+    //    (Le try / finally intérieur arrête le worker même si l'arrêt du
+    //    document échoue.)
+    try {
+      await tache?.destroy();
+    } finally {
+      pdfWorker?.destroy();
+      worker?.terminate();
+    }
   }
 }
 

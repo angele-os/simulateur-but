@@ -4,7 +4,7 @@ Ces règles ont été établies à partir des vrais documents de l'IUT de Metz (
 - les tableaux de coefficients du BUT1, du BUT2 et du BUT3, en parcours A et B ;
 - deux relevés « Détail des notes ».
 
-Elles ont été **complétées le 13/10/2026**, après un test de l'app sur de vrais relevés : pages tournées, ressource sans évaluation détaillée, lignes doublées « FI », totaux préfixés en BUT3 DACS, messages inutiles du rapport.
+Elles ont été **complétées le 13/10/2026**, après un test de l'app sur de vrais relevés : pages tournées, ressource sans évaluation détaillée, lignes doublées « FI », totaux préfixés en BUT3 DACS, messages inutiles du rapport, code de parcours collé à l'intitulé.
 
 **Les vrais fichiers ne sont pas dans le dépôt**, car ils contiennent des données personnelles. Tous les nombres d'exemple ci-dessous sont **inventés**.
 
@@ -52,6 +52,9 @@ Chaque PDF contient **deux semestres**, et chacun a sa propre ligne d'en-tête.
    - stage : `S4.MP`, `S6.STAGE`.
 
    Quand une ligne contient plusieurs codes, on garde **le dernier avant l'intitulé**. C'est le plus précis, et c'est celui du relevé de notes.
+   - **Dans les vrais PDF, ce dernier code est collé au début de l'intitulé**, dans un seul élément texte : pdf.js renvoie `R4.08`, puis `R4.B.08 Virtualisation` d'un bloc. De même pour les SAE : `S4.01`, puis `SAE 4.01 Déploiement…` ; en BUT3, `SAE 5.A.01`, puis `SAE5.B.01 Evolution…`. On détache donc un code placé au début de l'élément qui suit les codes (en un mot, `R4.B.08`, ou en deux, `SAE 2.01`), à condition qu'il reste un intitulé derrière. Sans cela, `R4.B.08` passe dans l'intitulé, et le code gardé est `R4.08`, celui que le relevé n'utilise pas.
+   - Les autres codes de la ligne sont gardés comme **alias** (`R4.08`). Une note du relevé est rattachée à la ligne dont le code **ou un alias** correspond.
+   - Une **ressource** du relevé qui ne correspond à aucune ligne du tableau n'est pas ajoutée en silence : elle est signalée dans « à vérifier » (ses notes sont gardées, sans coefficient).
 3. **Ranger chaque nombre de la ligne dans la colonne UE dont le centre est le plus proche horizontalement.** Exemple inventé : `R9.01 Initiation 30 12`, avec 30 sous `UE9.1` et 12 sous `UE9.4`.
 4. **Le type vient des lignes de section** : « Pôle SAE » pour les SAE, « Pôle Ressources » pour les ressources.
 5. **Les lignes « TOTAL SAE », « Total Ressource(s) » et « TOTAL GENERAL » servent de contrôle.** Pour chaque UE, la somme des coefficients lus doit être égale à ces totaux, et le total général vaut 100. **Sinon, on signale l'erreur** au lieu d'importer en silence.
@@ -156,6 +159,7 @@ Les fixtures (`tests/fixtures/*.json`) sont des listes d'éléments `{ texte, x,
 - un arrondi piège (x,xxx5) ;
 - une page tournée de 90° : `releve-tourne.json` contient ce que pdf.js renvoie (viewport et éléments bruts) pour un petit PDF inventé, sans rotation puis tourné ;
 - un relevé de BUT3 DACS (`releve-but3.json`) : lignes doublées « FI », ressource sans évaluation détaillée, colonne « Session 2 » vide, ligne du diplôme, légende du bas de page ;
-- un tableau de BUT3 DACS aux totaux préfixés `RSC` (`coefficients-but3-dacs.json`).
+- un tableau de BUT3 DACS aux totaux préfixés `RSC` (`coefficients-but3-dacs.json`) ;
+- un tableau dont le code de parcours est collé à l'intitulé (`coefficients-codes-colles.json` : `R4.10` puis `R4.B.10 Cryptographie (inventée)`). Avec le relevé `releve-but2.json`, il sert au test de bout en bout : tableau + relevé → moyennes d'UE.
 
 La version de pdf.js copiée dans `vendor/` est faite pour les navigateurs : elle utilise `Uint8Array.prototype.toHex`, que Node 24 n'a pas. On ne peut donc pas lire un PDF entier dans les tests. On teste le calcul pur (`positionAffichee`) et les analyseurs, à partir de données capturées.

@@ -11,8 +11,10 @@
 // Chaque import ne remplit que SA partie :
 //   - le tableau : les UE, et le coefficient de chaque ligne dans chaque UE ;
 //   - le relevé : les évaluations, le malus et les moyennes officielles.
-// Les deux se retrouvent grâce au code des lignes (R3.01, S4.PF…) : que l'on
-// importe le relevé avant ou après le tableau, le résultat est le même.
+// Les deux se retrouvent grâce au code des lignes (R3.01, S4.PF…), ou à un
+// alias venu du tableau (« R4.08 » pour la ligne « R4.08 R4.B.08 ») : que
+// l'on importe le relevé avant ou après le tableau, le résultat est le même.
+// Une ressource du relevé qu'aucune ligne du tableau ne porte est signalée.
 //
 // Les identifiants des nouvelles lignes viennent de la fonction nouvelId,
 // reçue en paramètre : app.js donne la sienne, les tests une fonction simple.
@@ -81,18 +83,31 @@ function lirePartie(code) {
   return trouve ? { base: trouve[1], ue: trouve[2].toUpperCase() } : null;
 }
 
-// La ligne « ordinaire » (pas une partie par UE) qui porte ce code, ou undefined.
-function ligneOrdinaire(semestre, code) {
-  const cle = cleCode(code);
-  return semestre.elements.find((element) => lirePartie(element.code) === null && cleCode(element.code) === cle);
+// Les codes d'une ligne de la saisie : son code, puis ses alias. Les alias
+// viennent du tableau : « R4.08 R4.B.08 » donne le code « R4.B.08 » et
+// l'alias « R4.08 ». Une ligne saisie à la main n'en a pas.
+const codesDe = (element) => [element.code, ...(element.alias ?? [])];
+
+// Vrai si deux listes de codes ont un code en commun (même clé).
+function codeCommun(codesA, codesB) {
+  const cles = new Set(codesA.map(cleCode));
+  return codesB.some((code) => cles.has(cleCode(code)));
 }
 
-// Les parties par UE d'une SAE (« S3.01 – UE3.1 », « S3.01 – UE3.2 »…).
-function partiesDe(semestre, code) {
-  const cle = cleCode(code);
+// La ligne « ordinaire » (pas une partie par UE) qui porte l'un de ces codes,
+// par son code ou par un alias, ou undefined.
+function ligneOrdinaire(semestre, codes) {
+  return semestre.elements.find(
+    (element) => lirePartie(element.code) === null && codeCommun(codesDe(element), codes),
+  );
+}
+
+// Les parties par UE d'une SAE (« S3.01 – UE3.1 », « S3.01 – UE3.2 »…),
+// dont le code de base est l'un de ces codes.
+function partiesDe(semestre, codes) {
   return semestre.elements.filter((element) => {
     const partie = lirePartie(element.code);
-    return partie !== null && cleCode(partie.base) === cle;
+    return partie !== null && codeCommun([partie.base], codes);
   });
 }
 
@@ -266,9 +281,13 @@ function remplirCoefficients(ancien, table, nouvelId, { remplaces, rapport }) {
   // 2. Le coefficient de chaque ligne dans chaque UE.
   const remplies = new Set(); // identifiants des lignes qui ont reçu leurs coefficients
   for (const ligne of table.lignes) {
+    // Le code de la ligne et ses alias (« R4.B.08 » et « R4.08 ») : la
+    // saisie peut contenir l'un ou l'autre.
+    const codesLigne = [ligne.code, ...(ligne.alias ?? [])];
+
     // a. SAE déjà découpée par UE (au S3, par le relevé) : chaque partie
     //    reçoit le coefficient de SA seule UE.
-    const parties = partiesDe(semestre, ligne.code);
+    const parties = partiesDe(semestre, codesLigne);
     if (parties.length > 0) {
       remplirParties(semestre, ligne, parties, idsUe, n, nouvelId, { remplaces, rapport, remplies });
       continue;
@@ -276,24 +295,31 @@ function remplirCoefficients(ancien, table, nouvelId, { remplaces, rapport }) {
 
     // b. Ligne sans aucun coefficient (portfolio du S1…) : elle ne compte
     //    pas ce semestre. On ne la crée que si le relevé l'a déjà apportée.
-    let element = ligneOrdinaire(semestre, ligne.code);
+    let element = ligneOrdinaire(semestre, codesLigne);
     const sansCoef = Object.keys(ligne.coefs).length === 0;
     if (sansCoef && !element) {
       rapport.ignores.push(`S${n} · ${ligne.code} ${ligne.libelle} : aucun coefficient ce semestre, la ligne n’est pas créée.`);
       continue;
     }
 
-    // c. Ligne déjà saisie (même code) : on la complète, et le code du
-    //    tableau remplace celui du relevé (« Portfolio » → « S4.PF »).
-    //    Sinon, on la crée.
+    // c. Ligne déjà saisie (même code, ou un alias) : on la complète, et le
+    //    code du tableau remplace celui du relevé (« Portfolio » → « S4.PF »).
+    //    Sinon, on la crée. Dans les deux cas, elle garde les alias du
+    //    tableau, pour que le relevé la retrouve.
     if (element) {
       element.code = ligne.code;
+      element.alias = ligne.alias ?? [];
       element.type = ligne.type;
       if (!element.intitule.trim()) {
         element.intitule = ligne.libelle;
       }
     } else {
-      element = { ...creerElement(nouvelId(), ligne.type), code: ligne.code, intitule: ligne.libelle };
+      element = {
+        ...creerElement(nouvelId(), ligne.type),
+        code: ligne.code,
+        alias: ligne.alias ?? [],
+        intitule: ligne.libelle,
+      };
       semestre.elements.push(element);
     }
 
@@ -452,7 +478,18 @@ export function preparerImportReleve(semestres, resultat, nouvelId) {
 function remplirReleve(ancien, releve, nouvelId, { remplaces, rapport }) {
   const semestre = structuredClone(ancien); // copie : l'état reçu ne change pas
   const n = releve.numero;
-  const contexte = { semestre, n, nouvelId, remplaces, rapport, touchees: new Set() };
+  const contexte = {
+    semestre,
+    n,
+    nouvelId,
+    remplaces,
+    rapport,
+    touchees: new Set(), // identifiants des lignes qui ont reçu des évaluations
+    // Le tableau des coefficients est déjà là si une ligne a un coefficient.
+    // On le regarde AVANT d'ajouter les notes du relevé.
+    avecTableau: semestre.elements.some(aDesCoefs),
+    absentes: new Set(), // ressources du relevé absentes du tableau (déjà signalées)
+  };
 
   // 1. Le malus du relevé remplit le champ malus (case vide : pas de malus).
   const malus = enTexte(releve.malus);
@@ -491,8 +528,9 @@ function remplirReleve(ancien, releve, nouvelId, { remplaces, rapport }) {
   // 4. Coefficients à compléter : lignes sans aucun coefficient. Si AUCUNE
   //    ligne du semestre n'en a, le relevé arrive avant le tableau : on le
   //    dit en une seule fois.
+  //    Les ressources absentes du tableau sont déjà signalées : pas deux messages.
   const touchees = semestre.elements.filter((element) => contexte.touchees.has(element.id));
-  const sansCoef = touchees.filter((element) => !aDesCoefs(element));
+  const sansCoef = touchees.filter((element) => !aDesCoefs(element) && !contexte.absentes.has(element.id));
   if (sansCoef.length > 0 && !semestre.elements.some(aDesCoefs)) {
     rapport.aCompleter.push({
       texte: `S${n} : aucune ligne n’a encore de coefficient. Importe le tableau des coefficients, ou saisis les coefficients de chaque ligne. Les notes sont gardées.`,
@@ -575,19 +613,32 @@ function remplacerEvaluations(ligne, evaluationsReleve, contexte) {
 }
 
 /**
- * Ligne ordinaire : ses évaluations vont dans la ligne de même code
- * (R3.01 ; Portfolio → S4.PF ou PORTFOLIO ; Stage → S4.MP ou S6.STAGE ;
+ * Ligne ordinaire : ses évaluations vont dans la ligne de même code, ou dont
+ * un alias est ce code (R3.01 ; R4.B.08 → ligne « R4.B.08 » du tableau, alias
+ * « R4.08 » ; Portfolio → S4.PF ou PORTFOLIO ; Stage → S4.MP ou S6.STAGE ;
  * SAE 4.01 → S4.01), créée si elle n'existe pas encore.
+ *
+ * Une RESSOURCE introuvable alors que le tableau est déjà importé n'est pas
+ * ajoutée en silence : elle est signalée dans « à vérifier ». Ses notes sont
+ * gardées, pour ne rien perdre, mais elles ne comptent pas tant qu'elle n'a
+ * pas de coefficient.
  */
 function placerDansLigne(element, evaluations, contexte) {
-  const { semestre, nouvelId } = contexte;
+  const { semestre, n, nouvelId, rapport } = contexte;
   const code = codeDuReleve(element);
-  let ligne = ligneOrdinaire(semestre, code);
+  let ligne = ligneOrdinaire(semestre, [code]);
   if (!ligne) {
     const type = element.type === 'ressource' ? 'ressource' : 'sae';
     // Le portfolio et le stage n'ont que leur nom : pas d'intitulé en plus.
     ligne = { ...creerElement(nouvelId(), type), code, intitule: element.code ? element.libelle : '' };
     semestre.elements.push(ligne);
+    if (type === 'ressource' && contexte.avecTableau) {
+      rapport.aVerifier.push(
+        `S${n} · ${nomLigne(ligne)} : cette ressource du relevé ne correspond à aucune ligne du tableau des coefficients. ` +
+          'Elle est ajoutée avec ses notes, mais sans coefficient : ses notes ne comptent pas. Vérifie son code, ou saisis ses coefficients.',
+      );
+      contexte.absentes.add(ligne.id);
+    }
   } else if (!ligne.intitule.trim() && element.code) {
     ligne.intitule = element.libelle;
   }
@@ -606,8 +657,8 @@ function placerParUe(element, evaluations, contexte) {
 
   // 1. La ligne ordinaire de même code, si le tableau l'a déjà créée avec un
   //    coefficient par UE : elle va être remplacée par ses parties.
-  const ordinaire = ligneOrdinaire(semestre, code);
-  const parties = partiesDe(semestre, code);
+  const ordinaire = ligneOrdinaire(semestre, [code]);
+  const parties = partiesDe(semestre, [code]);
   const base = ordinaire?.code ?? (parties.length > 0 ? lirePartie(parties[0].code).base : code);
 
   // 2. Les UE concernées : celles des évaluations, et celles où la ligne du

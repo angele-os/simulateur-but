@@ -34,6 +34,9 @@ const MOTIFS_CODE = [
   /^S\d\.(?:MP|STAGE)$/, // stage : S4.MP, S6.STAGE
 ];
 
+// Vrai si le texte est un code de ligne (voir MOTIFS_CODE).
+const estUnCode = (texte) => MOTIFS_CODE.some((motif) => motif.test(texte));
+
 // Un nombre : entier ou décimal (« 12 », « 7,5 », « 7.5 »).
 const MOTIF_NOMBRE = /^\d+(?:[.,]\d+)?$/;
 
@@ -99,10 +102,11 @@ export function regrouperEnLignes(elements) {
  *   }[],
  *   // Les mêmes données, ligne par ligne, dans l'ordre du tableau. Une ligne
  *   // sans aucun coefficient (portfolio du S1…) y figure aussi, avec coefs = {}.
- *   lignes: { type: 'sae'|'ressource', code: string, libelle: string, coefs: Object<string, number> }[],
+ *   // alias : les autres codes de la ligne (« R4.08 » pour « R4.08 R4.B.08 »).
+ *   lignes: { type: 'sae'|'ressource', code: string, alias: string[], libelle: string, coefs: Object<string, number> }[],
  *   }[],
  *   rapport: {
- *     lu: { semestre: number, page: number, type: 'sae'|'ressource', code: string, libelle: string, coefs: Object<string, number> }[],
+ *     lu: { semestre: number, page: number, type: 'sae'|'ressource', code: string, alias: string[], libelle: string, coefs: Object<string, number> }[],
  *     ignore: { page: number, texte: string, raison: string }[],
  *     erreurs: { semestre?: number, ue?: string, message: string }[],
  *   },
@@ -301,24 +305,59 @@ function rangerNombres(nombres, ligne, semestre, rapport, nomLigne) {
 }
 
 /**
+ * Sépare un code collé au début de l'intitulé, dans un même élément texte.
+ * C'est la forme des vrais tableaux : pdf.js renvoie « R4.08 », puis
+ * « R4.B.08 Virtualisation » d'un seul bloc.
+ *   « R4.B.08 Virtualisation »  → { code: 'R4.B.08', reste: 'Virtualisation' }
+ *   « SAE 2.01 Développement… » → { code: 'SAE 2.01', reste: 'Développement…' }
+ *   « Virtualisation »          → null (pas de code au début)
+ *
+ * @param {string} texte
+ * @returns {{ code: string, reste: string }|null}
+ */
+function separerCodeColle(texte) {
+  const mots = texte.split(/\s+/);
+  // On essaie d'abord un code en deux mots (« SAE 2.01 »), puis en un mot
+  // (« R4.B.08 »). Il doit rester au moins un mot pour l'intitulé.
+  for (const nombreDeMots of [2, 1]) {
+    const debut = mots.slice(0, nombreDeMots).join(' ');
+    if (mots.length > nombreDeMots && estUnCode(debut)) {
+      return { code: debut, reste: mots.slice(nombreDeMots).join(' ') };
+    }
+  }
+  return null;
+}
+
+/**
  * Lit une ligne de données : [Nature] code(s) intitulé coefficients.
  *
  * @returns {boolean} false si la ligne ne commence pas par un code
  */
 function lireLigneDonnees(ligne, semestre, rapport) {
   // 1. Début de ligne : la Nature éventuelle (BUT3), puis un ou plusieurs codes.
+  //    Le dernier code peut être collé au début de l'intitulé : on le
+  //    détache, et le reste de l'élément devient le début de l'intitulé.
   let nature = null;
   const codes = [];
+  const morceauxIntitule = [];
   let i = 0;
   for (; i < ligne.elements.length; i++) {
     const texte = ligne.elements[i].texte;
     if (codes.length === 0 && nature === null && NATURES.has(texte)) {
       nature = NATURES.get(texte);
-    } else if (MOTIFS_CODE.some((motif) => motif.test(texte))) {
-      codes.push(texte);
-    } else {
-      break; // début de l'intitulé
+      continue;
     }
+    if (estUnCode(texte)) {
+      codes.push(texte);
+      continue;
+    }
+    const colle = separerCodeColle(texte);
+    if (colle !== null) {
+      codes.push(colle.code);
+      morceauxIntitule.push(colle.reste);
+      i++; // cet élément est lu : la suite de la ligne commence après lui
+    }
+    break; // début de l'intitulé
   }
 
   // 2. Pas de code en début de ligne : ce n'est pas une ligne de données.
@@ -328,10 +367,13 @@ function lireLigneDonnees(ligne, semestre, rapport) {
 
   // 3. Plusieurs codes (R4.08 R4.B.08) : on garde le DERNIER avant
   //    l'intitulé. C'est le plus précis, celui du relevé de notes.
+  //    Les autres deviennent des « alias » : d'autres noms de la même
+  //    ligne, qui servent à la retrouver (un code répété, R1.01 R1.01,
+  //    n'en donne pas).
   const code = codes[codes.length - 1];
+  const alias = [...new Set(codes.slice(0, -1))].filter((autre) => autre !== code);
 
   // 4. La suite de la ligne : l'intitulé (du texte) et les coefficients (des nombres).
-  const morceauxIntitule = [];
   const nombres = [];
   for (const element of ligne.elements.slice(i)) {
     if (MOTIF_NOMBRE.test(element.texte)) {
@@ -371,8 +413,8 @@ function lireLigneDonnees(ligne, semestre, rapport) {
 
   // 7. On range les coefficients dans les colonnes d'UE.
   const coefs = rangerNombres(nombres, ligne, semestre, rapport, `Ligne ${code}`);
-  semestre.lignes.push({ type, code, libelle, coefs });
-  rapport.lu.push({ semestre: semestre.numero, page: ligne.page, type, code, libelle, coefs });
+  semestre.lignes.push({ type, code, alias, libelle, coefs });
+  rapport.lu.push({ semestre: semestre.numero, page: ligne.page, type, code, alias, libelle, coefs });
   return true;
 }
 
@@ -409,7 +451,7 @@ function construireSemestre(semestre, rapport) {
   controlerTotaux(semestre, ues, rapport);
   // Les lignes servent à remplir la saisie, qui range les coefficients ligne
   // par ligne (une ressource et son coefficient dans chaque UE).
-  const lignes = semestre.lignes.map(({ type, code, libelle, coefs }) => ({ type, code, libelle, coefs }));
+  const lignes = semestre.lignes.map(({ type, code, alias, libelle, coefs }) => ({ type, code, alias, libelle, coefs }));
   return { numero: semestre.numero, ues, lignes };
 }
 

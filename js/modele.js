@@ -22,6 +22,7 @@ import {
  *   ues: [{ id, numero: 1, intitule: 'Réaliser' }],
  *   elements: [{
  *     id, type: 'ressource' | 'sae', code: 'R3.01', intitule: 'Développement',
+ *     alias: ['R4.08'],                // (facultatif) autres codes, venus du tableau
  *     coefs: { [id de l'UE]: '12' },   // coefficient du tableau dans chaque UE
  *     evaluations: [{ id, libelle: 'Contrôle 1', note: '14,5', coef: '2' }],
  *   }],

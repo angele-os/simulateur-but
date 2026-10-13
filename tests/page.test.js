@@ -29,12 +29,14 @@ describe('sécurité de index.html', () => {
       "base-uri 'none'",
       "form-action 'none'",
       "require-trusted-types-for 'script'", // le navigateur refuse innerHTML avec du texte
-      "trusted-types 'none'",
+      // Une seule politique Trusted Types : celle qui n'autorise que le worker
+      // de pdf.js (js/lecture-pdf.js). Aucune autre ne peut être créée.
+      'trusted-types pdfjs-worker',
     ]) {
       assert.ok(directives.includes(directive), `directive manquante : ${directive}`);
     }
     // Aucune source dangereuse ne doit apparaître.
-    assert.doesNotMatch(csp, /unsafe-inline|unsafe-eval|data:|\*|https?:/);
+    assert.doesNotMatch(csp, /unsafe-inline|unsafe-eval|allow-duplicates|data:|\*|https?:/);
   });
 
   test('la balise CSP est placée avant toute ressource', () => {
@@ -83,6 +85,13 @@ describe('code JavaScript', () => {
         /\b(localStorage|sessionStorage|indexedDB)\b|document\.cookie|\bcaches\.|serviceWorker/,
         `js/${fichier}`,
       );
+    }
+  });
+
+  test('une seule politique Trusted Types, créée dans lecture-pdf.js', () => {
+    for (const fichier of fichiersJs) {
+      const appels = lire(`js/${fichier}`).match(/\.createPolicy\s*\(/g) ?? [];
+      assert.equal(appels.length, fichier === 'lecture-pdf.js' ? 1 : 0, `js/${fichier}`);
     }
   });
 

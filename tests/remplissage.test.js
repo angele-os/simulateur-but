@@ -5,7 +5,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { creerSemestre, creerUe, creerElement, creerEvaluation, codeUe } from '../js/modele.js';
+import { creerSemestre, creerUe, creerElement, creerEvaluation, codeUe, analyserSemestre } from '../js/modele.js';
 import { importerCoefficients } from '../js/import-coefficients.js';
 import { importerNotes } from '../js/import-notes.js';
 import {
@@ -493,6 +493,88 @@ describe('import du relevé de notes', () => {
     for (const donnee of ['EXEMPLE', 'Camille', '99999999', '000000000ZZ', '@', '13/10/2026']) {
       assert.ok(!sortie.includes(donnee), `« ${donnee} » est sorti`);
     }
+  });
+});
+
+// ---------- De bout en bout : codes de parcours ----------
+
+describe('de bout en bout : tableau aux codes collés (R4.10 + « R4.B.10 … ») et relevé → moyennes d’UE', () => {
+  // Fixture inventée : le S4, avec la forme des vrais tableaux de parcours
+  // (« R4.10 », puis « R4.B.10 Cryptographie (inventée) » d'un seul bloc).
+  // Le relevé inventé releve-but2.json écrit, lui, « R4.B.10 ».
+  const TABLEAU = importerCoefficients(chargerFixture('coefficients-codes-colles.json'));
+
+  function importer(ordre) {
+    const ids = fabriqueIds();
+    const [premier, second] =
+      ordre === 'tableau puis relevé'
+        ? [(s) => preparerImportCoefficients(s, TABLEAU, ids), (s) => preparerImportReleve(s, RELEVE_BUT2, ids)]
+        : [(s) => preparerImportReleve(s, RELEVE_BUT2, ids), (s) => preparerImportCoefficients(s, TABLEAU, ids)];
+    const apresPremier = appliquer(saisieVide(), premier(saisieVide()));
+    const proposition = second(apresPremier);
+    return { s4: appliquer(apresPremier, proposition)[4], proposition };
+  }
+
+  for (const ordre of ['tableau puis relevé', 'relevé puis tableau']) {
+    test(`${ordre} : les notes de R4.B.10 vont dans la ligne du tableau, et les moyennes d’UE sont justes`, () => {
+      const { s4, proposition } = importer(ordre);
+
+      // 1. Une seule ligne par ressource : pas de « R4.10 » sans note à côté
+      //    d'un « R4.B.10 » sans coefficient.
+      assert.deepEqual(
+        s4.elements.map((e) => e.code).sort(),
+        ['R4.01', 'R4.B.10', 'R4.B.11', 'S4.MP', 'S4.PF', 'SAE 4.01'],
+      );
+      const r4b10 = ligne(s4, 'R4.B.10');
+      assert.deepEqual(coefsParCode(s4, 4, r4b10), { 'UE4.1': '20', 'UE4.3': '30' });
+      assert.deepEqual(evaluations(r4b10), [['TP - coef 1,5', '16', '1,5']]);
+      assert.ok(!proposition.rapport.aVerifier.some((texte) => texte.includes('ne correspond à aucune ligne')));
+
+      // 2. Moyennes d'UE, calculées à la main (S4 sans malus) :
+      //    pôle SAE = (14,5 × 30 + 12 × 10) / 40 = 13,875 (stage pas encore noté)
+      //    UE4.1 : ressources = (10 × 20 + 16 × 20) / 40 = 13
+      //            UE = (13,875 × 60 + 13 × 40) / 100 = 13,525
+      //    UE4.3 : ressources = 16 (R4.B.11 pas encore notée)
+      //            UE = (13,875 × 60 + 16 × 40) / 100 = 14,725
+      const { ues } = analyserSemestre(s4, 4, '');
+      assert.deepEqual(
+        ues.map((ue) => [ue.code, ue.poleSae, ue.poleRessources, ue.moyenne]),
+        [
+          ['UE4.1', 13.875, 13, 13.525],
+          ['UE4.3', 13.875, 16, 14.725],
+        ],
+      );
+    });
+  }
+
+  test('une ressource du relevé absente du tableau : signalée dans « à vérifier », pas créée en silence', () => {
+    // On renomme la ressource du relevé : plus aucune ligne du tableau ne lui correspond.
+    const releve = structuredClone(RELEVE_BUT2);
+    const s4Releve = releve.semestres.find((s) => s.numero === 4);
+    s4Releve.elements.find((e) => e.code === 'R4.B.10').code = 'R4.B.99';
+
+    const ids = fabriqueIds();
+    const apresTableau = appliquer(saisieVide(), preparerImportCoefficients(saisieVide(), TABLEAU, ids));
+    const proposition = preparerImportReleve(apresTableau, releve, ids);
+    const s4 = proposition.semestres[4];
+
+    // Ses notes sont gardées dans une ligne à part, sans coefficient…
+    assert.deepEqual(evaluations(ligne(s4, 'R4.B.99')), [['TP - coef 1,5', '16', '1,5']]);
+    assert.deepEqual(ligne(s4, 'R4.B.99').coefs, {});
+    // … et c'est dit clairement, une seule fois.
+    const messages = [
+      ...proposition.rapport.aVerifier,
+      ...proposition.rapport.aCompleter.map((a) => a.texte),
+    ].filter((texte) => texte.includes('R4.B.99'));
+    assert.deepEqual(messages, [
+      'S4 · R4.B.99 Cryptographie (inventée) : cette ressource du relevé ne correspond à aucune ligne du tableau des coefficients. ' +
+        'Elle est ajoutée avec ses notes, mais sans coefficient : ses notes ne comptent pas. Vérifie son code, ou saisis ses coefficients.',
+    ]);
+  });
+
+  test('relevé seul (pas encore de tableau) : rien n’est signalé comme « absent du tableau »', () => {
+    const { proposition } = importerReleveSeul();
+    assert.ok(!proposition.rapport.aVerifier.some((texte) => texte.includes('ne correspond à aucune ligne')));
   });
 });
 

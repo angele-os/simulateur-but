@@ -154,7 +154,7 @@ describe('mise en page BUT1-2 (fixture inventée : 6 UE, 2 semestres sur 2 pages
     const [s1] = resultat.semestres;
     assert.deepEqual(
       s1.lignes.find((l) => l.code === 'R1.01'),
-      { type: 'ressource', code: 'R1.01', libelle: 'Ressource inventée 1', coefs: { 'UE1.1': 30, 'UE1.2': 20 } },
+      { type: 'ressource', code: 'R1.01', alias: [], libelle: 'Ressource inventée 1', coefs: { 'UE1.1': 30, 'UE1.2': 20 } },
     );
     // Le portfolio du S1 n'a aucun coefficient : il figure quand même, sans coefficient.
     assert.deepEqual(s1.lignes.find((l) => l.code === 'S1.PF').coefs, {});
@@ -173,6 +173,8 @@ describe('mise en page BUT1-2 (fixture inventée : 6 UE, 2 semestres sur 2 pages
       { code: 'R2.B.08', libelle: 'Ressource inventée de parcours', coef: 50 },
     ]);
     assert.ok(!resultat.rapport.lu.some((l) => l.code === 'R2.08'));
+    // Le premier code est gardé comme alias, pour retrouver la ligne.
+    assert.deepEqual(resultat.rapport.lu.find((l) => l.code === 'R2.B.08').alias, ['R2.08']);
   });
 
   test('portfolio sans coefficient au S1 : lu, mais ne compte dans aucune UE', () => {
@@ -220,6 +222,7 @@ describe('mise en page BUT1-2 (fixture inventée : 6 UE, 2 semestres sur 2 pages
       page: 1,
       type: 'sae',
       code: 'S1.01',
+      alias: [],
       libelle: 'SAE inventée A',
       coefs: { 'UE1.1': 40 },
     });
@@ -478,5 +481,45 @@ describe('cas particuliers (tableaux construits dans le test)', () => {
     assert.equal(resultat.semestres.length, 1);
     assert.deepEqual(resultat.rapport.erreurs, []);
     assert.equal(trouverUe(resultat, 'UE9.1').ressources[0].code, 'R9.01');
+  });
+});
+
+describe('code collé à l’intitulé (fixture inventée, forme des vrais tableaux)', () => {
+  // Dans les vrais PDF, pdf.js renvoie « R4.10 », puis « R4.B.10 Cryptographie »
+  // d'un seul bloc : le 2ᵉ code est collé au début de l'intitulé.
+  const resultat = importerCoefficients(chargerFixture('coefficients-codes-colles.json'));
+  const lignes = resultat.semestres[0].lignes;
+
+  test('aucune erreur : les totaux tombent juste', () => {
+    assert.deepEqual(resultat.rapport.erreurs, []);
+  });
+
+  test('le code collé est détaché : c’est lui le code, le premier devient un alias', () => {
+    assert.deepEqual(
+      lignes.map((l) => [l.code, l.alias, l.libelle]),
+      [
+        ['SAE 4.01', ['S4.01'], 'Projet inventé'],
+        ['S4.PF', [], 'Portfolio'],
+        ['S4.MP', [], 'Stage'],
+        ['R4.01', [], 'Architecture logicielle (inventée)'], // code répété : pas d'alias
+        ['R4.B.10', ['R4.10'], 'Cryptographie (inventée)'],
+        ['R4.B.11', ['R4.11'], 'Réseau inventé'],
+      ],
+    );
+  });
+
+  test('les coefficients restent dans les bonnes colonnes', () => {
+    assert.deepEqual(trouverUe(resultat, 'UE4.3').ressources, [
+      { code: 'R4.B.10', libelle: 'Cryptographie (inventée)', coef: 30 },
+      { code: 'R4.B.11', libelle: 'Réseau inventé', coef: 10 },
+    ]);
+  });
+
+  test('un intitulé qui ne commence pas par un code n’est pas découpé', () => {
+    const resultat = importerCoefficients(
+      tableauMinimal(ligne(600, ['R9.02', 'Réseaux R9.03 avancés'])),
+    );
+    const lue = resultat.rapport.lu.find((l) => l.code === 'R9.02');
+    assert.deepEqual([lue.alias, lue.libelle], [[], 'Réseaux R9.03 avancés']);
   });
 });
