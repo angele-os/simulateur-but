@@ -1,7 +1,7 @@
 // Lecture des PDF avec pdf.js.
 //
 // C'est le SEUL fichier de l'app qui parle à pdf.js. Il transforme un PDF en
-// une simple liste d'éléments texte { texte, x, y, taille, page }. Les
+// une simple liste d'éléments texte { texte, x, y, taille, largeur, page }. Les
 // analyseurs (import-coefficients.js, import-notes.js) travaillent ensuite sur
 // cette liste, ce qui permet de les tester sans PDF.
 //
@@ -46,7 +46,7 @@ export class ErreurLecturePdf extends Error {
  * Lit toutes les pages d'un PDF et renvoie ses éléments texte.
  *
  * @param {File} fichier fichier choisi par l'utilisateur (<input type="file">)
- * @returns {Promise<{ texte: string, x: number, y: number, taille: number, page: number }[]>}
+ * @returns {Promise<{ texte: string, x: number, y: number, taille: number, largeur: number, page: number }[]>}
  * @throws {ErreurLecturePdf} si le fichier ne convient pas ou est illisible
  */
 export async function lirePdf(fichier) {
@@ -168,10 +168,20 @@ async function extraireElements(tache) {
         continue;
       }
 
-      elements.push({ texte: element.str.trim(), x, y, taille, page: numero });
+      // 6. largeur = longueur du texte sur la page, en points. Elle sert à
+      //    calculer le centre d'un élément (x + largeur / 2), pour le ranger
+      //    dans la bonne colonne d'un tableau.
+      elements.push({
+        texte: element.str.trim(),
+        x,
+        y,
+        taille,
+        largeur: element.width,
+        page: numero,
+      });
     }
 
-    // 6. On libère la mémoire de la page lue.
+    // 7. On libère la mémoire de la page lue.
     page.cleanup();
   }
 
