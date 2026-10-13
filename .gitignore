@@ -147,3 +147,11 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Mes vrais PDF (notes, données perso) : ne JAMAIS publier
+prive/
+*.pdf
+!tests/fixtures/*.pdf
+
+# Fichier caché du Finder sur Mac
+.DS_Store
