@@ -252,7 +252,8 @@ a:hover {
 .resultats__contenu,
 .bloc,
 .liste,
-.element__corps,
+.ligne,
+.editeur,
 .groupe,
 .evaluations,
 .ue-resultat {
@@ -572,17 +573,6 @@ select.input {
   font-size: 1.5rem;
 }
 
-/* Lien vers les résultats (caché sur grand écran, où ils sont à côté) */
-.lien-resultats {
-  justify-self: start;
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  margin-top: -1rem;
-  font-size: .92rem;
-  font-weight: 600;
-}
-
 /* « Rien n'est enregistré » : bien visible, sans le rouge des erreurs */
 .avis {
   display: flex;
@@ -635,94 +625,208 @@ select.input {
   color: var(--text-faint);
 }
 
-/* --- Ligne d'UE. Mobile : numéro | supprimer, puis l'intitulé --- */
-.ue-ligne {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas:
-    'numero   suppr'
-    'intitule intitule';
-  gap: .75rem;
-  padding: .9rem;
-  background: rgba(255, 253, 246, .7);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--r-sm);
-}
-
-.ue-ligne__numero { grid-area: numero; }
-.ue-ligne__intitule { grid-area: intitule; }
-
-.ue-ligne__suppr {
-  grid-area: suppr;
-  /* Aligné sur le champ : on saute la hauteur du libellé (1 ligne) + l'espace */
-  margin-top: calc(.92rem * 1.55 + .4rem);
-}
-
-/* --- Carte d'une ressource ou d'une partie SAE (dépliable) --- */
-.element {
-  background: rgba(255, 253, 246, .7);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--r-sm);
-}
-
-.element__resume {
+/* --- Bloc modifiable : son bouton engrenage « Modifier » --- */
+/* La tête d'un bloc : son titre, ses valeurs, puis l'engrenage tout à droite. */
+.bloc-tete {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: .75rem;
-  min-height: 52px;
-  padding: .7rem 1rem;
-  border-radius: var(--r-sm);
-  cursor: pointer;
-  list-style: none; /* enlève le triangle par défaut… */
+  gap: .25rem .75rem;
 }
 
-.element__resume::-webkit-details-marker {
-  display: none; /* … aussi dans Safari */
-}
-
-/* Chevron : pointe à droite quand c'est replié, vers le bas quand c'est déplié */
-.element__resume::before {
-  content: '';
+/* Le bouton engrenage : transparent par défaut, mais TOUJOURS dans la page
+   (pas de display: none) : la touche Tab l'atteint, et il apparaît alors. */
+.engrenage {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: none;
-  width: .5rem;
-  height: .5rem;
-  margin-inline: .1rem .2rem;
-  border-right: 2px solid var(--accent);
-  border-bottom: 2px solid var(--accent);
-  transform: rotate(-45deg);
-  transition: transform .3s var(--ease);
+  width: 44px; /* cible tactile d'au moins 44 × 44 px */
+  height: 44px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .2s var(--ease), background-color .2s var(--ease), color .2s var(--ease);
 }
 
-.element__details[open] > .element__resume::before {
-  transform: rotate(45deg);
+.engrenage .icon {
+  width: 1.2rem;
+  height: 1.2rem;
 }
 
-.element__titre {
-  flex: 1;
+/* Visible quand la souris survole SON bloc, ou quand le focus clavier est
+   dedans (:focus-within). « > .bloc-tete > » : seul l'engrenage du bloc
+   lui-même apparaît, pas ceux des blocs qu'il contient (ses évaluations). */
+.bloc-modifiable:hover > .bloc-tete > .engrenage,
+.bloc-modifiable:focus-within > .bloc-tete > .engrenage {
+  opacity: 1;
+}
+
+.engrenage:hover {
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+}
+
+/* Téléphone et tablette : pas de survol possible, l'engrenage est toujours visible. */
+@media (hover: none) {
+  .engrenage {
+    opacity: 1;
+  }
+}
+
+/* --- Vue d'une ressource ou d'une partie SAE --- */
+.ligne {
+  display: grid;
+  gap: .6rem;
+  padding: .75rem 1rem 1rem;
+  background: rgba(255, 253, 246, .7);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+}
+
+/* La ligne en cours d'édition : l'éditeur prend toute la place. */
+.ligne--edition {
+  padding: 0;
+  background: none;
+  border: 0;
+}
+
+.ligne__titre {
+  flex: 1 1 12rem;
   min-width: 0;
+  margin: 0;
   font-family: var(--display);
   font-size: 1.02rem;
   font-weight: 600;
+  color: var(--text);
   overflow-wrap: anywhere;
 }
 
-.element__moyenne {
-  flex: none;
+.ligne__moyenne {
   font-size: .85rem;
   font-variant-numeric: tabular-nums;
   color: var(--text-dim);
 }
 
-.element__corps {
-  display: grid;
-  gap: 1.1rem;
-  padding: .25rem 1rem 1rem;
+.ligne__coefs {
+  font-size: .84rem;
+  color: var(--text-faint);
 }
 
-.element__entete {
+/* --- Vue d'une évaluation --- */
+.evaluations-vue {
+  display: grid;
+  gap: .4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.evaluation-vue {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'tete'
+    'viser';
+  gap: .2rem;
+  padding: .35rem .25rem .35rem .75rem;
+  background: var(--white);
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+}
+
+.evaluation-vue__tete { grid-area: tete; }
+/* Seulement dans une évaluation : la carte d'UE a aussi un .a-viser, mais pas de zone « viser ». */
+.evaluation-vue .a-viser { grid-area: viser; }
+
+/* L'évaluation en cours d'édition : l'éditeur prend toute la place. */
+.evaluation-vue--edition {
+  display: block;
+  padding: 0;
+  border: 0;
+}
+
+.evaluation-vue__libelle {
+  flex: 1 1 10rem;
+  min-width: 0;
+  font-size: .92rem;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.evaluation-vue__note,
+.evaluation-vue__coef {
+  font-size: .88rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.evaluation-vue__note {
+  font-weight: 600;
+  color: var(--accent-deep);
+}
+
+.evaluation-vue__note--vide {
+  font-weight: 400;
+  color: var(--text-faint);
+}
+
+.evaluation-vue__coef {
+  color: var(--text-dim);
+}
+
+/* « coef inconnu » : à compléter, avec l'ambre des avis. */
+.evaluation-vue__coef--inconnu {
+  padding: .05rem .5rem;
+  color: #6b4410;
+  background: #fdecc0;
+  border-radius: 999px;
+}
+
+/* Le malus (vue) */
+.malus-vue__texte {
+  flex: 1;
+  font-size: .92rem;
+}
+
+/* --- Éditeur d'un bloc : « Valider », « Annuler » (Échap) --- */
+.editeur {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--white);
+  border: 2px solid var(--accent);
+  border-radius: var(--r-sm);
+  box-shadow: 0 8px 24px -14px var(--accent-glow);
+}
+
+.editeur__titre {
+  font-weight: 600;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.editeur__grille {
   display: grid;
   gap: .75rem;
 }
+
+.editeur__pied {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6rem;
+}
+
+/* « Supprimer… » à l'écart des deux autres boutons, pour ne pas le cliquer par erreur. */
+.editeur__pied .btn--danger {
+  margin-left: auto;
+}
+
 
 /* Groupe de champs (fieldset sans cadre) */
 .groupe {
@@ -764,8 +868,7 @@ select.input {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   grid-template-areas:
     'libelle libelle libelle'
-    'note    coef    suppr'
-    'viser   viser   viser';
+    'note    coef    suppr';
   gap: .6rem;
   padding: .75rem;
   background: var(--white);
@@ -776,8 +879,6 @@ select.input {
 .evaluation__libelle { grid-area: libelle; }
 .evaluation__note { grid-area: note; }
 .evaluation__coef { grid-area: coef; }
-/* Seulement dans une évaluation : la carte d'UE a aussi un .a-viser, mais pas de zone « viser ». */
-.evaluation .a-viser { grid-area: viser; }
 
 .evaluation__suppr {
   grid-area: suppr;
@@ -793,11 +894,6 @@ select.input {
 .a-viser strong {
   color: var(--accent-deep);
   font-variant-numeric: tabular-nums;
-}
-
-.element__pied {
-  display: flex;
-  justify-content: flex-end;
 }
 
 /* ========== 7. Résultats ========== */
@@ -1183,28 +1279,21 @@ select.input {
 
 /* À partir de 600px : lignes sur une seule rangée */
 @media (min-width: 600px) {
-  .ue-ligne {
-    grid-template-columns: minmax(7rem, 9rem) minmax(0, 1fr) auto;
-    grid-template-areas: 'numero intitule suppr';
-  }
-
-  .element__entete {
+  .editeur__grille {
     grid-template-columns: minmax(7rem, 10rem) minmax(0, 1fr);
   }
 
   .evaluation {
     grid-template-columns: minmax(0, 1fr) minmax(5.5rem, 7rem) minmax(5rem, 6rem) auto;
-    grid-template-areas:
-      'libelle note coef suppr'
-      'viser   viser viser viser';
+    grid-template-areas: 'libelle note coef suppr';
   }
 }
 
-/* À partir de 1080px : saisie et résultats côte à côte ; les résultats restent visibles
-   (position sticky) pendant qu'on fait défiler la saisie. */
+/* À partir de 1080px : résultats et notes côte à côte ; les résultats restent visibles
+   (position sticky) pendant qu'on fait défiler les notes. */
 @media (min-width: 1080px) {
   .app {
-    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
   }
 
   .resultats {
@@ -1212,10 +1301,6 @@ select.input {
     top: 1rem;
     max-height: calc(100vh - 2rem);
     overflow-y: auto;
-  }
-
-  .lien-resultats {
-    display: none;
   }
 }
 

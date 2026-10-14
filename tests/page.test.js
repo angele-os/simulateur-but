@@ -126,7 +126,7 @@ test('style.css : la zone de grille « viser » n’est donnée qu’à la note 
   // Donnée à tout .a-viser, elle créait des colonnes en trop dans la carte
   // d'une UE (qui n'a pas de zone « viser ») : tout se chevauchait.
   assert.doesNotMatch(css, /(^|\})\s*\.a-viser\s*\{[^}]*grid-area/);
-  assert.match(css, /\.evaluation \.a-viser\s*\{\s*grid-area:\s*viser;/);
+  assert.match(css, /\.evaluation-vue \.a-viser\s*\{\s*grid-area:\s*viser;/);
 });
 
 test('style.css : l’attribut hidden cache toujours l’élément, même avec un display: grid', () => {

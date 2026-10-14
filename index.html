@@ -16,8 +16,8 @@
   <script type="module" src="js/app.js"></script>
 </head>
 <body>
-  <a class="skip-link" href="#saisie">Aller à la saisie</a>
   <a class="skip-link" href="#resultats">Aller aux résultats</a>
+  <a class="skip-link" href="#saisie">Aller aux notes</a>
 
   <header class="site-header">
     <div class="wrap site-header__inner">
@@ -100,92 +100,87 @@
     </section>
 
     <div class="tabs semestres" role="tablist" aria-label="Semestre">
-      <button class="tab" type="button" role="tab" id="onglet-s1" data-semestre="1" aria-controls="saisie" aria-selected="true">S1</button>
-      <button class="tab" type="button" role="tab" id="onglet-s2" data-semestre="2" aria-controls="saisie" aria-selected="false" tabindex="-1">S2</button>
-      <button class="tab" type="button" role="tab" id="onglet-s3" data-semestre="3" aria-controls="saisie" aria-selected="false" tabindex="-1">S3</button>
-      <button class="tab" type="button" role="tab" id="onglet-s4" data-semestre="4" aria-controls="saisie" aria-selected="false" tabindex="-1">S4</button>
-      <button class="tab" type="button" role="tab" id="onglet-s5" data-semestre="5" aria-controls="saisie" aria-selected="false" tabindex="-1">S5</button>
-      <button class="tab" type="button" role="tab" id="onglet-s6" data-semestre="6" aria-controls="saisie" aria-selected="false" tabindex="-1">S6</button>
+      <button class="tab" type="button" role="tab" id="onglet-s1" data-semestre="1" aria-controls="semestre" aria-selected="true">S1</button>
+      <button class="tab" type="button" role="tab" id="onglet-s2" data-semestre="2" aria-controls="semestre" aria-selected="false" tabindex="-1">S2</button>
+      <button class="tab" type="button" role="tab" id="onglet-s3" data-semestre="3" aria-controls="semestre" aria-selected="false" tabindex="-1">S3</button>
+      <button class="tab" type="button" role="tab" id="onglet-s4" data-semestre="4" aria-controls="semestre" aria-selected="false" tabindex="-1">S4</button>
+      <button class="tab" type="button" role="tab" id="onglet-s5" data-semestre="5" aria-controls="semestre" aria-selected="false" tabindex="-1">S5</button>
+      <button class="tab" type="button" role="tab" id="onglet-s6" data-semestre="6" aria-controls="semestre" aria-selected="false" tabindex="-1">S6</button>
     </div>
 
-    <div class="app">
-      <!-- ===== Saisie du semestre choisi ===== -->
-      <section class="panel saisie" id="saisie" role="tabpanel" aria-labelledby="onglet-s1" tabindex="-1">
-        <h2 class="saisie__titre" id="titre-saisie">Saisie du semestre 1</h2>
-        <!-- Sur téléphone, les résultats sont sous la saisie : un lien pour y aller directement. -->
-        <a class="lien-resultats" href="#resultats">Voir les résultats</a>
+    <!-- ===== Le semestre choisi : vue propre, modifiable bloc par bloc (bouton engrenage) ===== -->
+    <div class="app" id="semestre" role="tabpanel" aria-labelledby="onglet-s1">
+      <!-- Résultats : UE, compétences, malus -->
+      <section class="panel resultats" id="resultats" aria-labelledby="titre-resultats" tabindex="-1">
+        <h2 class="resultats__titre" id="titre-resultats">Résultats du semestre 1</h2>
 
         <div class="avis" role="note">
           <svg class="avis__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg>
           <p><strong>Rien n'est enregistré.</strong> Si tu fermes ou recharges la page, ta saisie est perdue.</p>
         </div>
 
-        <p class="hint saisie__aide">Dans les évaluations : une <strong>note vide</strong> veut dire « pas encore notée » (elle ne compte pas) ; un <strong>coef vide</strong> veut dire « inconnu », à compléter.</p>
+        <p class="hint">Pour modifier un bloc, utilise son bouton <strong>engrenage</strong> : il apparaît au survol ou avec la touche Tab (toujours visible sur téléphone). Les moyennes se recalculent quand tu valides.</p>
 
-        <!-- 1. UE -->
-        <section class="bloc" aria-labelledby="titre-ues">
-          <h3 class="bloc__titre" id="titre-ues">Unités d'enseignement (UE)</h3>
-          <p class="hint">Le numéro relie les UE de l'année à une compétence : UE3.1 et UE4.1 donnent la compétence C1.</p>
-          <ul class="liste" id="liste-ues"></ul>
-          <p class="vide-texte" id="ues-vide">Aucune UE pour l'instant.</p>
-          <div class="actions">
-            <button class="btn btn--primary btn--sm" type="button" id="btn-creer-ues" data-action="creer-ues">Créer les UE du semestre</button>
-            <button class="btn btn--secondary btn--sm" type="button" id="btn-ajouter-ue" data-action="ajouter-ue">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-              Ajouter une UE
-            </button>
-          </div>
-        </section>
-
-        <!-- 2. Ressources -->
-        <section class="bloc" aria-labelledby="titre-ressources">
-          <h3 class="bloc__titre" id="titre-ressources">Ressources</h3>
-          <p class="hint">Saisis chaque ressource une seule fois, même si elle compte dans plusieurs UE : indique son coefficient dans chaque UE, comme dans le tableau des coefficients.</p>
-          <ul class="liste" id="liste-ressource"></ul>
-          <div>
-            <button class="btn btn--secondary btn--sm" type="button" id="btn-ajouter-ressource" data-action="ajouter-element" data-type="ressource">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-              Ajouter une ressource
-            </button>
-          </div>
-        </section>
-
-        <!-- 3. Pôle SAE -->
-        <section class="bloc" aria-labelledby="titre-sae">
-          <h3 class="bloc__titre" id="titre-sae">Pôle SAE : SAE, portfolio, stage</h3>
-          <p class="hint">Une ligne par partie du pôle SAE, avec ses coefficients du tableau : la SAE, et selon le semestre le portfolio ou le stage. Au S3, les évaluations de SAE sont rangées par UE : crée une ligne par UE, par exemple « SAE 3.01 – UE3.2 ».</p>
-          <ul class="liste" id="liste-sae"></ul>
-          <div>
-            <button class="btn btn--secondary btn--sm" type="button" id="btn-ajouter-sae" data-action="ajouter-element" data-type="sae">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-              Ajouter une SAE, un portfolio ou un stage
-            </button>
-          </div>
-        </section>
-
-        <!-- 4. Malus -->
-        <section class="bloc" aria-labelledby="titre-malus">
-          <h3 class="bloc__titre" id="titre-malus">Malus d'absences</h3>
-          <div class="field field--court">
-            <label for="malus">Malus du semestre</label>
-            <p class="hint" id="malus-hint">Retiré de chaque UE du semestre (par exemple 0,05). Laisse vide s'il n'y en a pas.</p>
-            <input class="input input--num" id="malus" type="text" inputmode="decimal" maxlength="5" autocomplete="off" data-champ="malus" aria-describedby="malus-hint malus-error">
-            <p class="field-error" id="malus-error"></p>
-          </div>
-        </section>
-      </section>
-
-      <!-- ===== Résultats en direct ===== -->
-      <section class="panel resultats" id="resultats" aria-labelledby="titre-resultats" tabindex="-1">
-        <h2 class="resultats__titre" id="titre-resultats">Résultats du semestre 1</h2>
         <div class="field field--court">
           <label for="cible">Cible de la note à viser</label>
           <p class="hint" id="cible-hint">Moyenne d'UE à atteindre. Vide : 10.</p>
           <input class="input input--num" id="cible" type="text" inputmode="decimal" maxlength="5" autocomplete="off" placeholder="10" aria-describedby="cible-hint cible-error">
           <p class="field-error" id="cible-error"></p>
         </div>
-        <div class="resultats__contenu" id="resultats-contenu"></div>
+
+        <!-- 1. UE : leurs moyennes (cartes remplies par app.js) -->
+        <section class="bloc" aria-labelledby="titre-ues">
+          <h3 class="bloc__titre" id="titre-ues">Unités d'enseignement (UE)</h3>
+          <ul class="liste" id="liste-ues"></ul>
+          <p class="vide-texte" id="ues-vide">Aucune UE pour l'instant. Choisis ton année plus haut, ou crée les UE du semestre.</p>
+          <div class="actions">
+            <button class="btn btn--primary btn--sm" type="button" id="btn-creer-ues">Créer les UE du semestre</button>
+            <button class="btn btn--secondary btn--sm" type="button" id="btn-ajouter-ue">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              Ajouter une UE
+            </button>
+          </div>
+        </section>
+
+        <!-- 2. Compétences de l'année (rempli par app.js) -->
+        <div id="competences"></div>
+
+        <!-- 3. Malus d'absences (vue ou éditeur, rempli par app.js) -->
+        <section class="bloc" aria-labelledby="titre-malus">
+          <h3 class="bloc__titre" id="titre-malus">Malus d'absences</h3>
+          <div id="zone-malus"></div>
+        </section>
+
         <p class="hint resultats__note">Résultats indicatifs, calculés avec les règles connues : seul le relevé officiel fait foi. Aucun verdict n'est donné, seulement un repère par rapport à 10.</p>
+      </section>
+
+      <!-- Notes : ressources et pôle SAE, avec leurs évaluations -->
+      <section class="panel saisie" id="saisie" aria-labelledby="titre-saisie" tabindex="-1">
+        <h2 class="saisie__titre" id="titre-saisie">Notes du semestre 1</h2>
+        <p class="hint">Une <strong>note vide</strong> veut dire « pas encore notée » : elle ne compte pas. Un <strong>coef vide</strong> veut dire « inconnu » : complète-le.</p>
+
+        <section class="bloc" aria-labelledby="titre-ressources">
+          <h3 class="bloc__titre" id="titre-ressources">Ressources</h3>
+          <ul class="liste" id="liste-ressource"></ul>
+          <div>
+            <button class="btn btn--secondary btn--sm" type="button" id="btn-ajouter-ressource" data-type="ressource">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              Ajouter une ressource
+            </button>
+          </div>
+        </section>
+
+        <section class="bloc" aria-labelledby="titre-sae">
+          <h3 class="bloc__titre" id="titre-sae">Pôle SAE : SAE, portfolio, stage</h3>
+          <p class="hint">Au S3, les évaluations de SAE sont rangées par UE : une ligne par UE, par exemple « SAE 3.01 – UE3.2 ».</p>
+          <ul class="liste" id="liste-sae"></ul>
+          <div>
+            <button class="btn btn--secondary btn--sm" type="button" id="btn-ajouter-sae" data-type="sae">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              Ajouter une SAE, un portfolio ou un stage
+            </button>
+          </div>
+        </section>
       </section>
     </div>
   </main>
@@ -204,105 +199,9 @@
   <!-- Annonces pour les lecteurs d'écran (« Ressource ajoutée »…) -->
   <p class="sr-only" id="annonce" role="status" aria-live="polite"></p>
 
-  <!-- Modèles recopiés par app.js (cloneNode), sans innerHTML. -->
-
-  <!-- Une UE -->
-  <template id="modele-ue">
-    <li class="ue-ligne">
-      <div class="field ue-ligne__numero">
-        <label>Numéro<span class="sr-only js-pour"></span></label>
-        <select class="input" data-champ="ue-numero"></select>
-        <p class="field-error"></p>
-      </div>
-      <div class="field ue-ligne__intitule">
-        <label>Intitulé (facultatif)<span class="sr-only js-pour"></span></label>
-        <input class="input" type="text" maxlength="60" autocomplete="off" data-champ="ue-intitule">
-        <p class="field-error"></p>
-      </div>
-      <button class="btn-icon ue-ligne__suppr" type="button" data-action="supprimer-ue">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
-        <span class="sr-only js-supprimer"></span>
-      </button>
-    </li>
-  </template>
-
-  <!-- Une ressource ou une partie du pôle SAE -->
-  <template id="modele-element">
-    <li class="element">
-      <details class="element__details">
-        <summary class="element__resume">
-          <span class="element__titre js-titre"></span>
-          <span class="element__moyenne js-moyenne"></span>
-        </summary>
-        <div class="element__corps">
-          <div class="element__entete">
-            <div class="field element__code">
-              <label>Code<span class="sr-only js-pour"></span></label>
-              <input class="input" type="text" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false" data-champ="element-code">
-              <p class="field-error"></p>
-            </div>
-            <div class="field element__intitule">
-              <label>Intitulé<span class="sr-only js-pour"></span></label>
-              <input class="input" type="text" maxlength="80" autocomplete="off" data-champ="element-intitule">
-              <p class="field-error"></p>
-            </div>
-          </div>
-          <fieldset class="groupe">
-            <legend>Coefficient dans chaque UE<span class="sr-only js-pour"></span></legend>
-            <p class="hint">Recopie le tableau des coefficients. Case vide : ne compte pas dans cette UE.</p>
-            <div class="coefs js-coefs"></div>
-          </fieldset>
-          <fieldset class="groupe">
-            <legend>Évaluations<span class="sr-only js-pour"></span></legend>
-            <ul class="evaluations js-evaluations"></ul>
-            <div>
-              <button class="btn btn--secondary btn--sm" type="button" data-action="ajouter-evaluation">
-                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-                Ajouter une évaluation<span class="sr-only js-pour"></span>
-              </button>
-            </div>
-          </fieldset>
-          <div class="element__pied">
-            <button class="btn btn--danger btn--sm js-supprimer-element" type="button" data-action="supprimer-element"></button>
-          </div>
-        </div>
-      </details>
-    </li>
-  </template>
-
-  <!-- Le coefficient d'une ressource (ou SAE) dans une UE -->
-  <template id="modele-coef">
-    <div class="field coef">
-      <label><span class="js-ue"></span><span class="sr-only js-pour"></span></label>
-      <input class="input input--num" type="text" inputmode="decimal" maxlength="5" autocomplete="off" data-champ="element-coef">
-      <p class="field-error"></p>
-    </div>
-  </template>
-
-  <!-- Une évaluation -->
-  <template id="modele-evaluation">
-    <li class="evaluation">
-      <div class="field evaluation__libelle">
-        <label>Intitulé<span class="sr-only js-pour"></span></label>
-        <input class="input" type="text" maxlength="80" autocomplete="off" placeholder="ex. Contrôle 1" data-champ="evaluation-libelle">
-        <p class="field-error"></p>
-      </div>
-      <div class="field evaluation__note">
-        <label>Note /20<span class="sr-only js-pour"></span></label>
-        <input class="input input--num" type="text" inputmode="decimal" maxlength="6" autocomplete="off" data-champ="evaluation-note">
-        <p class="field-error"></p>
-      </div>
-      <div class="field evaluation__coef">
-        <label>Coef<span class="sr-only js-pour"></span></label>
-        <input class="input input--num" type="text" inputmode="decimal" maxlength="5" autocomplete="off" data-champ="evaluation-coef">
-        <p class="field-error"></p>
-      </div>
-      <button class="btn-icon evaluation__suppr" type="button" data-action="supprimer-evaluation">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
-        <span class="sr-only js-supprimer"></span>
-      </button>
-      <p class="a-viser js-a-viser" hidden></p>
-    </li>
+  <!-- Modèle recopié par app.js (cloneNode), sans innerHTML : l'icône du bouton « Modifier ». -->
+  <template id="icone-engrenage">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
   </template>
 </body>
 </html>

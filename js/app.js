@@ -1,6 +1,12 @@
 // Interface du simulateur : relie la page (index.html) au modèle (modele.js).
-// Ce fichier ne fait AUCUN calcul de moyenne : il lit les champs, met à jour
-// l'état de la saisie, appelle modele.js, puis affiche les résultats.
+// Ce fichier ne fait AUCUN calcul de moyenne : il affiche la saisie et les
+// résultats calculés par modele.js, et gère les éditeurs.
+//
+// Affichage : par défaut, une vue propre (lecture seule) des UE, des
+// ressources, des SAE et de leurs évaluations. Chaque bloc a un bouton
+// engrenage « Modifier » qui ouvre son éditeur, avec « Valider » et
+// « Annuler » (Échap). Le brouillon de l'éditeur est géré par edition.js :
+// la saisie ne change, et les moyennes ne se recalculent, qu'à la validation.
 //
 // Sécurité : jamais d'innerHTML. Tout texte (surtout ce que l'utilisateur a
 // saisi) est inséré avec textContent, qui l'affiche tel quel.
@@ -11,7 +17,6 @@ import {
   NUMEROS_UE,
   creerSemestre,
   creerUe,
-  creerElement,
   creerEvaluation,
   numerosUeParDefaut,
   codeUe,
@@ -22,12 +27,20 @@ import {
   lireCible,
   analyserSemestre,
   competencesAnnee,
-  numerosEnDouble,
   contientDesDonnees,
   formaterMoyenne,
   formaterNoteAViser,
   comparerOfficiel,
 } from './modele.js';
+import {
+  idChamp,
+  brouillonDe,
+  nouveauBloc,
+  erreursBrouillon,
+  estModifie,
+  appliquerBrouillon,
+  supprimerBloc,
+} from './edition.js';
 import { importerCoefficients } from './import-coefficients.js';
 import { importerNotes } from './import-notes.js';
 import { preparerImportCoefficients, preparerImportReleve, messageConfirmation } from './remplissage.js';
@@ -50,21 +63,26 @@ const etat = {
   officiels: { ues: {}, competences: {} },
 };
 
+// L'éditeur ouvert (un seul à la fois), ou null :
+//   cible     : le bloc édité (voir edition.js) ;
+//   brouillon : la copie modifiée pendant la frappe ;
+//   original  : le brouillon tel qu'à l'ouverture (pour savoir s'il a changé) ;
+//   nouveau   : vrai pour un bloc ajouté, qui n'existe pas encore dans la saisie.
+let edition = null;
+
 // Identifiants uniques : ils relient chaque champ à sa donnée et à son libellé.
 let compteurId = 0;
 const nouvelId = () => `id${++compteurId}`;
 
-// Cartes de ressource ou de SAE repliées par l'utilisateur (les autres sont dépliées).
-const cartesRepliees = new Set();
-
 const semestreActif = () => etat.semestres[etat.semestreActif];
 
 const NOMS = {
-  ressource: { court: 'ressource', sansNom: 'Ressource sans code' },
-  sae: { court: 'partie SAE', sansNom: 'SAE sans code' },
+  ressource: { court: 'ressource', sansCode: 'ressource sans code', nouvelle: 'Nouvelle ressource' },
+  sae: { court: 'partie SAE', sansCode: 'partie SAE sans code', nouvelle: 'Nouvelle partie du pôle SAE' },
 };
 
-// Lecture de chaque champ numérique : elle donne aussi le message d'erreur.
+// Lecture de chaque champ numérique (attribut data-champ) : elle donne aussi
+// le message d'erreur, affiché pendant la frappe.
 const LECTEURS = {
   malus: lireMalus,
   'element-coef': lireCoefUe,
@@ -75,29 +93,28 @@ const LECTEURS = {
 /* ==================== Éléments fixes de la page ==================== */
 
 const onglets = [...document.querySelectorAll('[role="tab"]')];
-const saisie = document.getElementById('saisie');
+const zoneSemestre = document.getElementById('semestre');
 const titreSaisie = document.getElementById('titre-saisie');
+const titreResultats = document.getElementById('titre-resultats');
 const listeUes = document.getElementById('liste-ues');
 const uesVide = document.getElementById('ues-vide');
 const boutonCreerUes = document.getElementById('btn-creer-ues');
 const boutonAjouterUe = document.getElementById('btn-ajouter-ue');
+const zoneCompetences = document.getElementById('competences');
+const zoneMalus = document.getElementById('zone-malus');
 const listes = {
   ressource: document.getElementById('liste-ressource'),
   sae: document.getElementById('liste-sae'),
 };
-const champMalus = document.getElementById('malus');
+const boutonsAjouterLigne = [
+  document.getElementById('btn-ajouter-ressource'),
+  document.getElementById('btn-ajouter-sae'),
+];
 const champCible = document.getElementById('cible');
-const titreResultats = document.getElementById('titre-resultats');
-const contenuResultats = document.getElementById('resultats-contenu');
 const zoneAnnonce = document.getElementById('annonce');
 const sectionImport = document.getElementById('import');
 const etatImport = document.getElementById('import-etat');
 const rapportImport = document.getElementById('rapport-import');
-
-// Zones mises à jour en direct dans la saisie, remplies à chaque affichage :
-// id d'évaluation → { sortie, evaluation } ; id de ligne → zone de sa moyenne.
-const sortiesAViser = new Map();
-const sortiesMoyenne = new Map();
 
 /* ==================== Petits utilitaires ==================== */
 
@@ -109,11 +126,6 @@ function creer(balise, classe, texte) {
   return element;
 }
 
-// Recopie le contenu d'un <template> de index.html.
-function cloner(idModele) {
-  return document.getElementById(idModele).content.firstElementChild.cloneNode(true);
-}
-
 // Zone role="status" : ce qu'on y écrit est lu par les lecteurs d'écran.
 function annoncer(message) {
   // On vide puis on réécrit un peu plus tard : sinon un même message ne serait pas relu.
@@ -121,21 +133,6 @@ function annoncer(message) {
   setTimeout(() => {
     zoneAnnonce.textContent = message;
   }, 60);
-}
-
-/**
- * Prépare un champ d'un modèle : identifiant, libellé relié (for), zone
- * d'erreur reliée (aria-describedby) et valeur.
- */
-function preparerChamp(field, id, valeur) {
-  const champ = field.querySelector('input, select');
-  const erreur = field.querySelector('.field-error');
-  champ.id = id;
-  field.querySelector('label').htmlFor = id;
-  erreur.id = `${id}-error`;
-  champ.setAttribute('aria-describedby', erreur.id);
-  champ.value = valeur;
-  return champ;
 }
 
 // Affiche (ou efface) le message d'erreur d'un champ.
@@ -149,48 +146,93 @@ function afficherErreurChamp(champ, message) {
   }
 }
 
-// Titre d'une carte : « R3.01 — Développement », ou un texte par défaut.
+// Donne le focus à un élément de la page. Renvoie false s'il n'existe pas.
+function donnerFocus(id) {
+  const cible = id ? document.getElementById(id) : null;
+  if (!cible) return false;
+  cible.focus();
+  return true;
+}
+
+// Nom court d'une ligne, pour les boutons : « R3.01 », ou « ressource sans code ».
+const nomLigne = (element) => element.code.trim() || NOMS[element.type].sansCode;
+
+// Titre d'une ligne : « R3.01 — Développement », ou son nom court.
 function titreElement(element) {
-  const code = element.code.trim() || NOMS[element.type].sansNom;
   const intitule = element.intitule.trim();
-  return intitule ? `${code} — ${intitule}` : code;
+  return intitule ? `${nomLigne(element)} — ${intitule}` : nomLigne(element);
 }
 
-// Retrouve la donnée liée à un champ ou un bouton, grâce aux attributs data-* des lignes.
-function trouverUe(noeud) {
-  const id = noeud.closest('[data-ue-id]').dataset.ueId;
-  return semestreActif().ues.find((ue) => ue.id === id);
-}
+// Coefficients et poids : sans décimales inutiles (40 → « 40 », 7.5 → « 7,5 »).
+const formaterPoids = (valeur) => valeur.toLocaleString('fr-FR', { maximumFractionDigits: 3 });
 
-function trouverElement(noeud) {
-  const id = noeud.closest('[data-element-id]').dataset.elementId;
-  return semestreActif().elements.find((element) => element.id === id);
-}
+// Cible affichée simplement : 10 → « 10 », 12.5 → « 12,5 ».
+const texteCible = (cible) => cible.toLocaleString('fr-FR');
 
-function trouverEvaluation(noeud) {
-  const id = noeud.closest('[data-evaluation-id]').dataset.evaluationId;
-  return trouverElement(noeud).evaluations.find((evaluation) => evaluation.id === id);
-}
+/* ==================== Bouton engrenage « Modifier » ==================== */
 
-/* ==================== Affichage de la saisie ==================== */
+// Identifiant du bouton « Modifier » d'un bloc : le focus y revient après l'édition.
+const idModifier = (cible) => (cible.sorte === 'malus' ? 'modifier-malus' : `modifier-${cible.id}`);
 
 /**
- * Reconstruit toute la saisie du semestre actif, puis les résultats.
- * On l'appelle après un changement de STRUCTURE (ajout, suppression,
- * changement de semestre). Pendant la frappe, seuls les résultats sont
- * recalculés : les champs ne sont pas recréés et gardent le focus.
+ * Le bouton engrenage d'un bloc : un vrai <button>, atteignable avec Tab.
+ * Son nom pour les lecteurs d'écran est « Modifier R3.01 » (aria-label) ;
+ * title l'affiche aussi en bulle au survol de la souris.
+ *
+ * @param {string} nom ce que le bouton modifie : « R3.01 », « le malus »…
+ * @param {object} cible le bloc à éditer (voir edition.js)
+ */
+function boutonModifier(nom, cible) {
+  const bouton = creer('button', 'engrenage');
+  bouton.type = 'button';
+  bouton.id = idModifier(cible);
+  bouton.setAttribute('aria-label', `Modifier ${nom}`);
+  bouton.title = `Modifier ${nom}`;
+  bouton.dataset.action = 'modifier';
+  // La cible est rangée en texte JSON dans un attribut data-*.
+  bouton.dataset.cible = JSON.stringify(cible);
+  // L'icône est recopiée depuis un <template> de index.html (pas d'innerHTML).
+  bouton.append(document.getElementById('icone-engrenage').content.firstElementChild.cloneNode(true));
+  return bouton;
+}
+
+/* ==================== Affichage du semestre ==================== */
+
+// Vrai si l'éditeur ouvert est celui de ce bloc.
+function enEdition(cible) {
+  if (edition === null || edition.cible.sorte !== cible.sorte) return false;
+  return cible.sorte === 'malus' || edition.cible.id === cible.id;
+}
+
+// Vrai si l'éditeur ouvert est celui d'un bloc NEUF de cette sorte (UE, ressource, SAE).
+function nouveauEnEdition(sorte) {
+  if (edition === null || !edition.nouveau) return false;
+  return sorte === 'ue' ? edition.cible.sorte === 'ue' : edition.cible.sorte === 'element' && edition.brouillon.type === sorte;
+}
+
+/**
+ * Reconstruit tout le semestre actif : résultats (UE, compétences, malus) et
+ * lignes (ressources, SAE et leurs évaluations). L'éditeur ouvert est
+ * affiché à la place de son bloc, avec son brouillon.
+ * Les moyennes sont calculées sur la saisie VALIDÉE (pas sur le brouillon).
  *
  * @param {string} [idAFocaliser] champ ou bouton qui reçoit le focus ensuite
  */
-function afficherSaisie(idAFocaliser) {
+function afficher(idAFocaliser) {
   const numero = etat.semestreActif;
   const semestre = semestreActif();
-  titreSaisie.textContent = `Saisie du semestre ${numero}`;
+  const analyse = analyserSemestre(semestre, numero, etat.cible);
+  titreResultats.textContent = `Résultats du semestre ${numero}`;
+  titreSaisie.textContent = `Notes du semestre ${numero}`;
 
-  // 1. Les UE, avec les numéros en double signalés.
-  const doubles = numerosEnDouble(semestre);
-  listeUes.replaceChildren(...semestre.ues.map((ue, i) => creerLigneUe(ue, i, doubles)));
-  uesVide.hidden = semestre.ues.length > 0;
+  // 1. Les UE : une carte de résultat chacune (ou son éditeur), puis une
+  //    nouvelle UE en cours d'ajout.
+  const ues = analyse.ues.map((ue) => (enEdition({ sorte: 'ue', id: ue.id }) ? editeurUe(numero) : vueUe(ue, analyse, numero)));
+  if (nouveauEnEdition('ue')) {
+    ues.push(editeurUe(numero));
+  }
+  listeUes.replaceChildren(...ues.map((contenu) => enItem(contenu)));
+  uesVide.hidden = ues.length > 0;
   boutonCreerUes.hidden = semestre.ues.length > 0;
   boutonCreerUes.textContent =
     numero >= 5
@@ -199,221 +241,40 @@ function afficherSaisie(idAFocaliser) {
   // Au plus une UE par numéro (6 en tout).
   boutonAjouterUe.disabled = semestre.ues.length >= NUMEROS_UE.length;
 
-  // 2. Les ressources, puis les parties du pôle SAE.
-  sortiesAViser.clear();
-  sortiesMoyenne.clear();
-  for (const type of ['ressource', 'sae']) {
-    const lignes = semestre.elements.filter((element) => element.type === type);
-    listes[type].replaceChildren(...lignes.map((element, i) => creerCarte(element, i)));
-  }
+  // 2. Les compétences de l'année : elles dépendent des DEUX semestres, on
+  //    les montre dès que l'un des deux a une UE.
+  const annee = competencesAnnee(etat.semestres, numero);
+  zoneCompetences.replaceChildren(...(annee.competences.length > 0 ? [carteCompetences(annee)] : []));
 
   // 3. Le malus.
-  champMalus.value = semestre.malus;
-  afficherErreurChamp(champMalus, lireMalus(semestre.malus).erreur);
+  zoneMalus.replaceChildren(enEdition({ sorte: 'malus' }) ? editeurMalus() : vueMalus(analyse.malus));
 
-  // 4. Résultats, puis focus (après : l'élément doit exister dans la page).
-  afficherResultats();
+  // 4. Les ressources, puis les parties du pôle SAE (et une ligne en cours d'ajout).
+  const moyennes = new Map(analyse.elements.map((ligne) => [ligne.id, ligne.moyenne]));
+  for (const type of ['ressource', 'sae']) {
+    const lignes = semestre.elements.filter((element) => element.type === type);
+    const items = lignes.map((element, i) =>
+      enEdition({ sorte: 'element', id: element.id })
+        ? enItem(editeurLigne(numero, i), 'ligne ligne--edition')
+        : vueLigne(element, moyennes.get(element.id), analyse, numero),
+    );
+    if (nouveauEnEdition(type)) {
+      items.push(enItem(editeurLigne(numero, lignes.length), 'ligne ligne--edition'));
+    }
+    listes[type].replaceChildren(...items);
+  }
+
   donnerFocus(idAFocaliser);
 }
 
-// Donne le focus à un élément. S'il est dans une carte repliée, on la déplie
-// d'abord : un champ caché ne peut pas recevoir le focus.
-function donnerFocus(id) {
-  const cible = id ? document.getElementById(id) : null;
-  if (!cible) return;
-  const carte = cible.closest('details');
-  if (carte && !carte.open) {
-    carte.open = true;
-    cartesRepliees.delete(cible.closest('[data-element-id]').dataset.elementId);
-  }
-  cible.focus();
+// Range un contenu dans un <li> (les cartes d'UE et les éditeurs sont dans des listes).
+function enItem(contenu, classe) {
+  const item = creer('li', classe);
+  item.append(contenu);
+  return item;
 }
 
-// Une ligne d'UE : numéro (liste), intitulé, bouton supprimer.
-function creerLigneUe(ue, index, doubles) {
-  const ligne = cloner('modele-ue');
-  ligne.dataset.ueId = ue.id;
-  const [champNumero, champIntitule] = ligne.querySelectorAll('.field');
-
-  // 1. La liste des numéros, affichés comme des codes (UE3.1, UE3.2…).
-  const liste = preparerChamp(champNumero, `${ue.id}-numero`, '');
-  liste.replaceChildren(
-    ...NUMEROS_UE.map((numero) => {
-      const option = creer('option', null, codeUe(etat.semestreActif, numero));
-      option.value = String(numero);
-      return option;
-    }),
-  );
-  liste.value = String(ue.numero);
-  if (doubles.has(ue.numero)) {
-    afficherErreurChamp(liste, 'Ce numéro est déjà utilisé par une autre UE.');
-  }
-
-  // 2. L'intitulé.
-  preparerChamp(champIntitule, `${ue.id}-intitule`, ue.intitule);
-
-  // 3. Textes lus par les lecteurs d'écran, pour savoir de quelle UE on parle.
-  for (const precision of ligne.querySelectorAll('.js-pour')) {
-    precision.textContent = ` (UE de la ligne ${index + 1})`;
-  }
-  ligne.querySelector('.js-supprimer').textContent = `Supprimer ${codeUe(etat.semestreActif, ue.numero)}`;
-  return ligne;
-}
-
-// Une carte de ressource ou de partie SAE : code, intitulé, coefficients, évaluations.
-function creerCarte(element, index) {
-  const carte = cloner('modele-element');
-  carte.dataset.elementId = element.id;
-  const nom = `${NOMS[element.type].court} ${index + 1}`; // « ressource 2 »
-
-  // 1. Dépliée, sauf si l'utilisateur l'a repliée.
-  carte.querySelector('details').open = !cartesRepliees.has(element.id);
-
-  // 2. Résumé : titre et moyenne (la moyenne est remplie par afficherResultats).
-  carte.querySelector('.js-titre').textContent = titreElement(element);
-  sortiesMoyenne.set(element.id, carte.querySelector('.js-moyenne'));
-
-  // 3. Code et intitulé.
-  const [champCode, champIntitule] = carte.querySelectorAll('.element__entete .field');
-  const code = preparerChamp(champCode, `${element.id}-code`, element.code);
-  code.placeholder = element.type === 'ressource' ? 'ex. R3.01' : 'ex. S3.01';
-  preparerChamp(champIntitule, `${element.id}-intitule`, element.intitule);
-
-  // 4. Une case de coefficient par UE du semestre.
-  const ues = semestreActif().ues;
-  const grille = carte.querySelector('.js-coefs');
-  if (ues.length === 0) {
-    grille.replaceChildren(creer('p', 'hint', 'Ajoute d’abord les UE du semestre.'));
-  } else {
-    grille.replaceChildren(...ues.map((ue) => creerCaseCoef(element, ue, nom)));
-  }
-
-  // 5. Les évaluations.
-  carte
-    .querySelector('.js-evaluations')
-    .replaceChildren(...element.evaluations.map((evaluation, i) => creerLigneEvaluation(evaluation, i, nom)));
-
-  // 6. Boutons et précisions pour les lecteurs d'écran.
-  carte.querySelector('[data-action="ajouter-evaluation"]').id = `${element.id}-ajouter`;
-  carte.querySelector('.js-supprimer-element').textContent = `Supprimer cette ${NOMS[element.type].court}`;
-  for (const precision of carte.querySelectorAll('.js-pour')) {
-    precision.textContent = ` (${nom})`;
-  }
-  return carte;
-}
-
-// La case « coefficient dans l'UE x » d'une ressource ou d'une partie SAE.
-function creerCaseCoef(element, ue, nom) {
-  const field = cloner('modele-coef');
-  const code = codeUe(etat.semestreActif, ue.numero);
-  field.querySelector('.js-ue').textContent = code;
-  field.querySelector('.js-pour').textContent = ` : coefficient (${nom})`;
-  const champ = preparerChamp(field, `${element.id}-coef-${ue.id}`, element.coefs[ue.id] ?? '');
-  champ.dataset.coefUe = ue.id;
-  afficherErreurChamp(champ, lireCoefUe(champ.value).erreur);
-  return field;
-}
-
-// Une ligne d'évaluation : libellé, note, coef, supprimer, note à viser.
-function creerLigneEvaluation(evaluation, index, nom) {
-  const ligne = cloner('modele-evaluation');
-  ligne.dataset.evaluationId = evaluation.id;
-  const [champLibelle, champNote, champCoef] = ligne.querySelectorAll('.field');
-
-  preparerChamp(champLibelle, `${evaluation.id}-libelle`, evaluation.libelle);
-  const note = preparerChamp(champNote, `${evaluation.id}-note`, evaluation.note);
-  const coef = preparerChamp(champCoef, `${evaluation.id}-coef`, evaluation.coef);
-  afficherErreurChamp(note, lireNote(evaluation.note).erreur);
-  afficherErreurChamp(coef, lireCoefEvaluation(evaluation.coef).erreur);
-
-  for (const precision of ligne.querySelectorAll('.js-pour')) {
-    precision.textContent = `, évaluation ${index + 1} (${nom})`;
-  }
-  ligne.querySelector('.js-supprimer').textContent = `Supprimer l’évaluation ${index + 1} (${nom})`;
-  sortiesAViser.set(evaluation.id, { sortie: ligne.querySelector('.js-a-viser'), evaluation });
-  return ligne;
-}
-
-/* ==================== Affichage des résultats ==================== */
-
-// Cible affichée simplement : 10 → « 10 », 12.5 → « 12,5 ».
-const texteCible = (cible) => cible.toLocaleString('fr-FR');
-
-/**
- * Recalcule et affiche tous les résultats du semestre actif. Appelée à
- * chaque frappe : elle ne touche pas aux champs de la saisie.
- */
-function afficherResultats() {
-  const numero = etat.semestreActif;
-  const analyse = analyserSemestre(semestreActif(), numero, etat.cible);
-  titreResultats.textContent = `Résultats du semestre ${numero}`;
-
-  // 1. Moyenne de chaque ligne, dans le résumé de sa carte.
-  for (const ligne of analyse.elements) {
-    const sortie = sortiesMoyenne.get(ligne.id);
-    if (sortie) {
-      sortie.textContent = ligne.moyenne === null ? 'pas de note' : `moy. ${formaterMoyenne(ligne.moyenne)}`;
-    }
-  }
-
-  // 2. Note à viser sous chaque évaluation non notée.
-  for (const { sortie, evaluation } of sortiesAViser.values()) {
-    const nonNotee = lireNote(evaluation.note).valeur === null;
-    sortie.hidden = !nonNotee;
-    if (nonNotee) {
-      sortie.replaceChildren(...texteAViserEvaluation(analyse.aViserParEvaluation.get(evaluation.id), analyse.cible));
-    }
-  }
-
-  // 3. Le panneau des résultats.
-  contenuResultats.replaceChildren(...blocsResultats(analyse, numero));
-}
-
-// Texte de la note à viser d'une évaluation, dans chaque UE où elle compte.
-function texteAViserEvaluation(resultats, cible) {
-  // 1. L'évaluation ne compte dans aucune UE (aucun coefficient sur sa ligne).
-  if (!resultats || resultats.length === 0) {
-    return [creer('span', null, 'Ne compte encore dans aucune UE : donne un coefficient à cette ligne.')];
-  }
-  // 2. Coefficient inconnu : rien à calculer.
-  if (resultats[0].statut === 'coef-inconnu') {
-    return [creer('span', null, 'Coefficient inconnu : saisis-le pour connaître la note à viser.')];
-  }
-  // 3. Sinon, un morceau par UE : « UE3.1 : 11,00 · UE3.2 : déjà atteint ».
-  const morceaux = [creer('span', null, `Note à viser pour ${texteCible(cible)} : `)];
-  resultats.forEach((resultat, i) => {
-    if (i > 0) morceaux.push(creer('span', null, ' · '));
-    morceaux.push(creer('span', null, `${resultat.ue} `));
-    if (resultat.statut === 'possible') {
-      morceaux.push(creer('strong', null, formaterNoteAViser(resultat.note)));
-    } else if (resultat.statut === 'deja-atteinte') {
-      morceaux.push(creer('strong', null, 'déjà atteint'));
-    } else {
-      morceaux.push(creer('strong', null, 'hors d’atteinte'));
-      morceaux.push(creer('span', null, ` (20 donnerait ${formaterMoyenne(resultat.moyenne)})`));
-    }
-  });
-  return morceaux;
-}
-
-// Tous les blocs du panneau des résultats.
-function blocsResultats(analyse, numero) {
-  const blocs = [];
-  if (analyse.ues.length === 0) {
-    blocs.push(creer('p', 'vide-texte', 'Ajoute des UE et des notes : les résultats s’afficheront ici, en direct.'));
-  }
-  blocs.push(...analyse.ues.map((ue) => carteUe(ue, analyse, numero)));
-  if (analyse.elements.length > 0) {
-    blocs.push(carteMoyennesLignes(analyse.elements));
-  }
-  // Les compétences dépendent des DEUX semestres de l'année : on les montre
-  // dès que l'un des deux a une UE (par exemple sur le S4 encore vide).
-  const annee = competencesAnnee(etat.semestres, numero);
-  if (annee.competences.length > 0) {
-    blocs.push(carteCompetences(annee));
-  }
-  return blocs;
-}
+/* ==================== Vue propre (lecture seule) ==================== */
 
 // Pastille « repère » : au-dessus ou en dessous de 10, sans verdict.
 // court = true : « ≥ 10 » seulement (dans un tableau, où la colonne s'appelle déjà « Repère »).
@@ -427,15 +288,15 @@ function badgeRepere(moyenne, court = false) {
   return badge;
 }
 
-// Carte du résultat d'une UE.
-function carteUe(ue, analyse, numero) {
-  const carte = creer('article', 'card ue-resultat');
+// Carte du résultat d'une UE, avec son bouton « Modifier UE3.1 ».
+function vueUe(ue, analyse, numero) {
+  const carte = creer('article', 'card ue-resultat bloc-modifiable');
   const titreId = `resultat-${ue.id}`;
   carte.setAttribute('aria-labelledby', titreId);
 
-  // 1. Titre et moyenne.
-  const tete = creer('div', 'ue-resultat__tete');
-  const titre = creer('h3', null, ue.code);
+  // 1. Titre, moyenne et bouton « Modifier ».
+  const tete = creer('div', 'ue-resultat__tete bloc-tete');
+  const titre = creer('h4', null, ue.code);
   titre.id = titreId;
   if (ue.intitule.trim()) {
     titre.append(creer('span', 'ue-resultat__intitule', ` — ${ue.intitule.trim()}`));
@@ -444,7 +305,7 @@ function carteUe(ue, analyse, numero) {
     ue.moyenne === null
       ? creer('p', 'moyenne moyenne--vide', 'Pas encore de note')
       : creer('p', 'moyenne', formaterMoyenne(ue.moyenne));
-  tete.append(titre, moyenne);
+  tete.append(titre, moyenne, boutonModifier(ue.code, { sorte: 'ue', id: ue.id }));
   carte.append(tete);
 
   // 2. Pastilles : provisoire, repère.
@@ -506,6 +367,116 @@ function carteUe(ue, analyse, numero) {
   return carte;
 }
 
+// Le malus du semestre, avec son bouton « Modifier le malus ».
+function vueMalus(malus) {
+  const bloc = creer('div', 'malus-vue bloc-modifiable');
+  const tete = creer('div', 'bloc-tete');
+  const texte =
+    malus > 0
+      ? `${formaterPoids(malus)} point retiré de chaque UE du semestre.`
+      : 'Aucun malus.';
+  tete.append(creer('p', 'malus-vue__texte', texte), boutonModifier('le malus', { sorte: 'malus' }));
+  bloc.append(tete);
+  return bloc;
+}
+
+/**
+ * Une ressource ou une partie du pôle SAE : titre, moyenne, coefficients, et
+ * ses évaluations (chacune avec son propre bouton « Modifier »).
+ */
+function vueLigne(element, moyenne, analyse, numero) {
+  const item = creer('li', 'ligne bloc-modifiable');
+  const cible = { sorte: 'element', id: element.id };
+
+  // 1. Titre, moyenne et bouton « Modifier R3.01 ».
+  const tete = creer('div', 'ligne__tete bloc-tete');
+  tete.append(
+    creer('h4', 'ligne__titre', titreElement(element)),
+    creer('span', 'ligne__moyenne', moyenne === null ? 'pas de note' : `moy. ${formaterMoyenne(moyenne)}`),
+    boutonModifier(nomLigne(element), cible),
+  );
+
+  // 2. Ses coefficients, UE par UE : « UE3.1 : 15 · UE3.2 : 5 ».
+  const coefs = semestreActif()
+    .ues.filter((ue) => String(element.coefs[ue.id] ?? '').trim() !== '')
+    .map((ue) => `${codeUe(numero, ue.numero)} : ${String(element.coefs[ue.id]).trim()}`);
+  const texteCoefs =
+    coefs.length > 0 ? `Coefficients : ${coefs.join(' · ')}` : 'Aucun coefficient : ne compte dans aucune UE.';
+  item.append(tete, creer('p', 'ligne__coefs', texteCoefs));
+
+  // 3. Ses évaluations (ou l'éditeur de l'une d'elles).
+  if (element.evaluations.length === 0) {
+    item.append(creer('p', 'vide-texte', 'Aucune évaluation.'));
+  } else {
+    const liste = creer('ul', 'evaluations-vue');
+    liste.append(
+      ...element.evaluations.map((evaluation) =>
+        enEdition({ sorte: 'evaluation', id: evaluation.id })
+          ? enItem(editeurEvaluation(element), 'evaluation-vue evaluation-vue--edition')
+          : vueEvaluation(evaluation, element, analyse),
+      ),
+    );
+    item.append(liste);
+  }
+  return item;
+}
+
+// Une évaluation : intitulé, note, coef, bouton « Modifier », et la note à viser si elle n'est pas notée.
+function vueEvaluation(evaluation, element, analyse) {
+  const item = creer('li', 'evaluation-vue bloc-modifiable');
+  const libelle = evaluation.libelle.trim() || 'Évaluation sans intitulé';
+  const note = evaluation.note.trim();
+  const coef = evaluation.coef.trim();
+
+  const tete = creer('div', 'evaluation-vue__tete bloc-tete');
+  tete.append(
+    creer('span', 'evaluation-vue__libelle', libelle),
+    creer('span', note ? 'evaluation-vue__note' : 'evaluation-vue__note evaluation-vue__note--vide', note ? `${note} / 20` : 'pas encore notée'),
+    creer('span', coef ? 'evaluation-vue__coef' : 'evaluation-vue__coef evaluation-vue__coef--inconnu', coef ? `coef ${coef}` : 'coef inconnu'),
+    boutonModifier(`l’évaluation « ${libelle} » (${nomLigne(element)})`, {
+      sorte: 'evaluation',
+      element: element.id,
+      id: evaluation.id,
+    }),
+  );
+  item.append(tete);
+
+  // Note à viser, sous une évaluation pas encore notée.
+  if (lireNote(evaluation.note).valeur === null) {
+    const aViser = creer('p', 'a-viser');
+    aViser.append(...texteAViserEvaluation(analyse.aViserParEvaluation.get(evaluation.id), analyse.cible));
+    item.append(aViser);
+  }
+  return item;
+}
+
+// Texte de la note à viser d'une évaluation, dans chaque UE où elle compte.
+function texteAViserEvaluation(resultats, cible) {
+  // 1. L'évaluation ne compte dans aucune UE (aucun coefficient sur sa ligne).
+  if (!resultats || resultats.length === 0) {
+    return [creer('span', null, 'Ne compte encore dans aucune UE : donne un coefficient à cette ligne.')];
+  }
+  // 2. Coefficient inconnu : rien à calculer.
+  if (resultats[0].statut === 'coef-inconnu') {
+    return [creer('span', null, 'Coefficient inconnu : complète-le pour connaître la note à viser.')];
+  }
+  // 3. Sinon, un morceau par UE : « UE3.1 : 11,00 · UE3.2 : déjà atteint ».
+  const morceaux = [creer('span', null, `Note à viser pour ${texteCible(cible)} : `)];
+  resultats.forEach((resultat, i) => {
+    if (i > 0) morceaux.push(creer('span', null, ' · '));
+    morceaux.push(creer('span', null, `${resultat.ue} `));
+    if (resultat.statut === 'possible') {
+      morceaux.push(creer('strong', null, formaterNoteAViser(resultat.note)));
+    } else if (resultat.statut === 'deja-atteinte') {
+      morceaux.push(creer('strong', null, 'déjà atteint'));
+    } else {
+      morceaux.push(creer('strong', null, 'hors d’atteinte'));
+      morceaux.push(creer('span', null, ` (20 donnerait ${formaterMoyenne(resultat.moyenne)})`));
+    }
+  });
+  return morceaux;
+}
+
 // Phrase de la note à viser d'une UE (toutes les évaluations restantes).
 function texteAViserUe(ue, cible) {
   const restantes = ue.restantes === 1 ? '1 évaluation restante' : `${ue.restantes} évaluations restantes`;
@@ -519,9 +490,6 @@ function texteAViserUe(ue, cible) {
   }
   return `${restantes} : il faut au moins ${formaterNoteAViser(note)}${aChacune} pour atteindre ${texteCible(cible)}.`;
 }
-
-// Coefficients et poids : sans décimales inutiles (40 → « 40 », 7.5 → « 7,5 »).
-const formaterPoids = (valeur) => valeur.toLocaleString('fr-FR', { maximumFractionDigits: 3 });
 
 /**
  * Cellule « officiel » : la moyenne du relevé, et l'écart s'il dépasse 0,01.
@@ -560,39 +528,6 @@ function tableauComparaison(comparaisons) {
   }
   tableau.append(tete, corps);
   return tableau;
-}
-
-// Tableau des moyennes de chaque ressource et partie SAE.
-function carteMoyennesLignes(lignes) {
-  const carte = creer('section', 'card');
-  carte.setAttribute('aria-labelledby', 'titre-moyennes-lignes');
-  const titre = creer('h3', null, 'Ressources et SAE');
-  titre.id = 'titre-moyennes-lignes';
-
-  const tableau = creer('table', 'data-table');
-  const entete = creer('tr');
-  for (const [texte, classe] of [['Ligne'], ['Type'], ['Moyenne', 'num']]) {
-    const cellule = creer('th', classe, texte);
-    cellule.scope = 'col';
-    entete.append(cellule);
-  }
-  const corps = creer('tbody');
-  for (const ligne of lignes) {
-    const rangee = creer('tr');
-    const nom = creer('th', null, titreElement(ligne));
-    nom.scope = 'row';
-    rangee.append(
-      nom,
-      creer('td', null, ligne.type === 'sae' ? 'SAE' : 'Ressource'),
-      creer('td', 'num', formaterMoyenne(ligne.moyenne)),
-    );
-    corps.append(rangee);
-  }
-  const tete = creer('thead');
-  tete.append(entete);
-  tableau.append(tete, corps);
-  carte.append(titre, tableau);
-  return carte;
 }
 
 // Tableau des compétences de l'année (les deux semestres).
@@ -655,164 +590,553 @@ function carteCompetences({ semestres: [impair, pair], competences }) {
   return carte;
 }
 
-/* ==================== Saisie au clavier et à la souris ==================== */
+/* ==================== Éditeurs ==================== */
 
-// Frappe dans un champ : on met à jour l'état, l'erreur éventuelle, puis les résultats.
-saisie.addEventListener('input', (event) => {
-  const champ = event.target;
-  const sorte = champ.dataset.champ;
-  if (!sorte) return;
-  const semestre = semestreActif();
+/**
+ * Un champ de saisie : libellé relié (for), saisie, et zone d'erreur reliée
+ * (aria-describedby). data-champ dit à quelle donnée du brouillon il correspond.
+ *
+ * @param {{ id: string, libelle: string, precision?: string, valeur: string, champ: string,
+ *   numerique?: boolean, maxlength?: number, donnees?: object, classe?: string, placeholder?: string }} options
+ *   precision : texte en plus pour les lecteurs d'écran (« , évaluation 2 (R3.01) »)
+ */
+function creerChamp({ id, libelle, precision, valeur, champ, numerique = false, maxlength = 80, donnees = {}, classe, placeholder }) {
+  const field = creer('div', classe ? `field ${classe}` : 'field');
+  const label = creer('label', null, libelle);
+  if (precision) label.append(creer('span', 'sr-only', precision));
+  label.htmlFor = id;
 
-  switch (sorte) {
-    case 'malus':
-      semestre.malus = champ.value;
-      break;
-    case 'ue-numero':
-      // Le numéro change les codes affichés partout (UE3.1…) : on reconstruit la saisie.
-      trouverUe(champ).numero = Number(champ.value);
-      afficherSaisie(champ.id);
-      return;
-    case 'ue-intitule':
-      trouverUe(champ).intitule = champ.value;
-      break;
-    case 'element-code':
-    case 'element-intitule': {
-      const element = trouverElement(champ);
-      element[sorte === 'element-code' ? 'code' : 'intitule'] = champ.value;
-      champ.closest('.element').querySelector('.js-titre').textContent = titreElement(element);
-      break;
+  const saisie = creer('input', numerique ? 'input input--num' : 'input');
+  saisie.type = 'text';
+  saisie.id = id;
+  saisie.value = valeur ?? '';
+  saisie.maxLength = maxlength;
+  saisie.autocomplete = 'off';
+  if (numerique) saisie.inputMode = 'decimal';
+  if (placeholder) saisie.placeholder = placeholder;
+  saisie.dataset.champ = champ;
+  Object.assign(saisie.dataset, donnees);
+
+  const erreur = creer('p', 'field-error');
+  erreur.id = `${id}-error`;
+  saisie.setAttribute('aria-describedby', erreur.id);
+  field.append(label, saisie, erreur);
+
+  // Une valeur déjà invalide est signalée dès l'ouverture.
+  const lire = LECTEURS[champ];
+  if (lire) afficherErreurChamp(saisie, lire(saisie.value).erreur);
+  return field;
+}
+
+/**
+ * Le cadre commun des éditeurs : un formulaire nommé (« Modifier R3.01 »),
+ * son contenu, puis « Valider » (Entrée), « Annuler » (Échap) et, pour un
+ * bloc existant, « Supprimer… ».
+ */
+function cadreEditeur(titre, contenu, texteSupprimer) {
+  const formulaire = creer('form', 'editeur');
+  formulaire.noValidate = true; // nos propres messages, pas ceux du navigateur
+  const entete = creer('p', 'editeur__titre', titre);
+  entete.id = 'titre-editeur';
+  formulaire.setAttribute('aria-labelledby', entete.id);
+
+  const pied = creer('div', 'editeur__pied');
+  const valider = creer('button', 'btn btn--primary btn--sm', 'Valider');
+  valider.type = 'submit';
+  const annuler = creer('button', 'btn btn--secondary btn--sm', 'Annuler');
+  annuler.type = 'button';
+  annuler.dataset.action = 'annuler';
+  pied.append(valider, annuler);
+  if (texteSupprimer && !edition.nouveau) {
+    const supprimer = creer('button', 'btn btn--danger btn--sm', texteSupprimer);
+    supprimer.type = 'button';
+    supprimer.dataset.action = 'supprimer-bloc';
+    pied.append(supprimer);
+  }
+
+  formulaire.append(entete, ...contenu, pied);
+  return formulaire;
+}
+
+// Éditeur d'une UE : numéro et intitulé.
+function editeurUe(numero) {
+  const ue = edition.brouillon;
+  const codeAvant = codeUe(numero, edition.original.numero);
+
+  // 1. Le numéro, dans une liste (UE3.1, UE3.2…).
+  const fieldNumero = creer('div', 'field');
+  const label = creer('label', null, 'Numéro');
+  label.htmlFor = idChamp.ueNumero(ue);
+  const liste = creer('select', 'input');
+  liste.id = idChamp.ueNumero(ue);
+  liste.dataset.champ = 'ue-numero';
+  liste.append(
+    ...NUMEROS_UE.map((n) => {
+      const option = creer('option', null, codeUe(numero, n));
+      option.value = String(n);
+      return option;
+    }),
+  );
+  liste.value = String(ue.numero);
+  const erreur = creer('p', 'field-error');
+  erreur.id = `${liste.id}-error`;
+  liste.setAttribute('aria-describedby', erreur.id);
+  fieldNumero.append(label, liste, erreur);
+
+  // 2. L'intitulé.
+  const fieldIntitule = creerChamp({
+    id: idChamp.ueIntitule(ue),
+    libelle: 'Intitulé (facultatif)',
+    valeur: ue.intitule,
+    champ: 'ue-intitule',
+    maxlength: 60,
+  });
+
+  const grille = creer('div', 'editeur__grille');
+  grille.append(fieldNumero, fieldIntitule);
+  return cadreEditeur(edition.nouveau ? 'Nouvelle UE' : `Modifier ${codeAvant}`, [grille], `Supprimer ${codeAvant}`);
+}
+
+// Éditeur du malus du semestre.
+function editeurMalus() {
+  const champ = creerChamp({
+    id: idChamp.malus(),
+    libelle: 'Malus du semestre',
+    valeur: edition.brouillon.malus,
+    champ: 'malus',
+    numerique: true,
+    maxlength: 5,
+    classe: 'field--court',
+  });
+  const aide = creer('p', 'hint', 'Retiré de chaque UE du semestre (par exemple 0,05). Laisse vide s’il n’y en a pas.');
+  return cadreEditeur('Modifier le malus', [aide, champ]);
+}
+
+// Les trois champs d'une évaluation : intitulé, note, coef.
+function champsEvaluation(evaluation, precision) {
+  const donnees = { evaluation: evaluation.id };
+  return [
+    creerChamp({
+      id: idChamp.libelle(evaluation),
+      libelle: 'Intitulé',
+      precision,
+      valeur: evaluation.libelle,
+      champ: 'evaluation-libelle',
+      donnees,
+      classe: 'evaluation__libelle',
+      placeholder: 'ex. Contrôle 1',
+    }),
+    creerChamp({
+      id: idChamp.note(evaluation),
+      libelle: 'Note /20',
+      precision,
+      valeur: evaluation.note,
+      champ: 'evaluation-note',
+      numerique: true,
+      maxlength: 6,
+      donnees,
+      classe: 'evaluation__note',
+    }),
+    creerChamp({
+      id: idChamp.coefEvaluation(evaluation),
+      libelle: 'Coef',
+      precision,
+      valeur: evaluation.coef,
+      champ: 'evaluation-coef',
+      numerique: true,
+      maxlength: 5,
+      donnees,
+      classe: 'evaluation__coef',
+    }),
+  ];
+}
+
+// Éditeur d'une seule évaluation (bouton « Modifier » de l'évaluation).
+function editeurEvaluation(element) {
+  const evaluation = edition.brouillon;
+  const libelle = edition.original.libelle.trim() || 'sans intitulé';
+  const grille = creer('div', 'evaluation');
+  grille.append(...champsEvaluation(evaluation, ` (${nomLigne(element)})`));
+  return cadreEditeur(`Modifier l’évaluation « ${libelle} » (${nomLigne(element)})`, [grille], 'Supprimer l’évaluation');
+}
+
+/**
+ * Éditeur d'une ressource ou d'une partie SAE : code, intitulé, coefficient
+ * dans chaque UE, et toutes ses évaluations (ajout et suppression compris).
+ */
+function editeurLigne(numero, index) {
+  const ligne = edition.brouillon;
+  const nom = `${NOMS[ligne.type].court} ${index + 1}`; // « ressource 2 », pour les lecteurs d'écran
+  const precision = ` (${nom})`;
+
+  // 1. Code et intitulé.
+  const entete = creer('div', 'editeur__grille editeur__grille--ligne');
+  const champCode = creerChamp({
+    id: idChamp.code(ligne),
+    libelle: 'Code',
+    precision,
+    valeur: ligne.code,
+    champ: 'element-code',
+    maxlength: 20,
+    placeholder: ligne.type === 'ressource' ? 'ex. R3.01' : 'ex. S3.01',
+  });
+  champCode.querySelector('input').autocapitalize = 'characters';
+  champCode.querySelector('input').spellcheck = false;
+  entete.append(
+    champCode,
+    creerChamp({ id: idChamp.intitule(ligne), libelle: 'Intitulé', precision, valeur: ligne.intitule, champ: 'element-intitule' }),
+  );
+
+  // 2. Une case de coefficient par UE du semestre.
+  const groupeCoefs = creer('fieldset', 'groupe');
+  const legendeCoefs = creer('legend', null, 'Coefficient dans chaque UE');
+  legendeCoefs.append(creer('span', 'sr-only', precision));
+  groupeCoefs.append(legendeCoefs, creer('p', 'hint', 'Celui du tableau des coefficients. Case vide : ne compte pas dans cette UE.'));
+  const ues = semestreActif().ues;
+  if (ues.length === 0) {
+    groupeCoefs.append(creer('p', 'hint', 'Ajoute d’abord les UE du semestre.'));
+  } else {
+    const grille = creer('div', 'coefs');
+    grille.append(
+      ...ues.map((ue) =>
+        creerChamp({
+          id: idChamp.coef(ligne, ue),
+          libelle: codeUe(numero, ue.numero),
+          precision: ` : coefficient (${nom})`,
+          valeur: ligne.coefs[ue.id] ?? '',
+          champ: 'element-coef',
+          numerique: true,
+          maxlength: 5,
+          donnees: { ue: ue.id },
+          classe: 'coef',
+        }),
+      ),
+    );
+    groupeCoefs.append(grille);
+  }
+
+  // 3. Les évaluations, chacune avec un bouton pour la retirer, puis « Ajouter ».
+  const groupeEvaluations = creer('fieldset', 'groupe');
+  const legende = creer('legend', null, 'Évaluations');
+  legende.append(creer('span', 'sr-only', precision));
+  const liste = creer('ul', 'evaluations');
+  liste.append(
+    ...ligne.evaluations.map((evaluation, i) => {
+      const item = creer('li', 'evaluation evaluation--retirable');
+      const retirer = creer('button', 'btn-icon evaluation__suppr');
+      retirer.type = 'button';
+      retirer.dataset.action = 'retirer-evaluation';
+      retirer.dataset.evaluation = evaluation.id;
+      retirer.append(iconeCroix(), creer('span', 'sr-only', `Retirer l’évaluation ${i + 1}${precision}`));
+      item.append(...champsEvaluation(evaluation, `, évaluation ${i + 1}${precision}`), retirer);
+      return item;
+    }),
+  );
+  const ajouter = creer('button', 'btn btn--secondary btn--sm', 'Ajouter une évaluation');
+  ajouter.type = 'button';
+  ajouter.id = `${ligne.id}-ajouter-evaluation`;
+  ajouter.dataset.action = 'ajouter-evaluation';
+  ajouter.append(creer('span', 'sr-only', precision));
+  const pied = creer('div');
+  pied.append(ajouter);
+  groupeEvaluations.append(legende, liste, pied);
+
+  const titre = edition.nouveau ? NOMS[ligne.type].nouvelle : `Modifier ${titreElement(edition.original)}`;
+  return cadreEditeur(titre, [entete, groupeCoefs, groupeEvaluations], `Supprimer cette ${NOMS[ligne.type].court}`);
+}
+
+// Petite croix « retirer », dessinée avec l'API SVG du DOM (pas d'innerHTML).
+function iconeCroix() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'icon');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '2');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  const trait = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  trait.setAttribute('d', 'M18 6 6 18M6 6l12 12');
+  svg.append(trait);
+  return svg;
+}
+
+/* ==================== Ouvrir, valider, annuler ==================== */
+
+// Le champ qui reçoit le focus à l'ouverture d'un éditeur.
+function premierChamp(cible, brouillon) {
+  switch (cible.sorte) {
+    case 'ue':
+      return idChamp.ueNumero(brouillon);
+    case 'element':
+      return idChamp.code(brouillon);
+    case 'evaluation':
+      return idChamp.note(brouillon);
+    default:
+      return idChamp.malus();
+  }
+}
+
+// Vrai si l'éditeur ouvert contient des modifications pas encore validées.
+const modificationsEnCours = () => edition !== null && estModifie(edition.original, edition.brouillon);
+
+/**
+ * Avant de changer de semestre, d'importer ou de choisir une année :
+ * l'éditeur ouvert est fermé, après confirmation s'il a des modifications.
+ *
+ * @returns {boolean} false si l'utilisateur préfère garder ses modifications
+ */
+function fermerEdition() {
+  if (modificationsEnCours() && !window.confirm('Abandonner les modifications en cours ?')) {
+    return false;
+  }
+  edition = null;
+  return true;
+}
+
+/**
+ * Ouvre l'éditeur d'un bloc. Un seul éditeur à la fois : si celui qui est
+ * ouvert a des modifications, on y reste (rien n'est perdu en silence).
+ *
+ * @param {object} cible
+ * @param {{ brouillon?: object, nouveau?: boolean, focus?: string }} [options]
+ */
+function ouvrir(cible, { brouillon = brouillonDe(semestreActif(), cible), nouveau = false, focus } = {}) {
+  if (modificationsEnCours()) {
+    annoncer('Valide ou annule d’abord la modification en cours.');
+    document.querySelector('.editeur input, .editeur select')?.focus();
+    return;
+  }
+  if (brouillon === null) {
+    annoncer('Ce bloc n’existe plus.');
+    return;
+  }
+  edition = { cible, brouillon, original: structuredClone(brouillon), nouveau };
+  afficher();
+  // Le champ demandé (lien du rapport d'import), sinon le premier de l'éditeur.
+  if (!donnerFocus(focus)) {
+    donnerFocus(premierChamp(cible, brouillon));
+  }
+}
+
+// Ajoute une UE, une ressource ou une partie SAE : son éditeur s'ouvre, vide.
+function ouvrirNouveau(sorte) {
+  const bloc = nouveauBloc(semestreActif(), sorte, nouvelId);
+  if (bloc) {
+    ouvrir(bloc.cible, { brouillon: bloc.brouillon, nouveau: true });
+  }
+}
+
+// Où revient le focus quand l'éditeur se ferme : sur le bouton « Modifier »
+// du bloc, ou sur le bouton « Ajouter » si le bloc neuf a été annulé.
+function retourFocus({ cible, brouillon, nouveau }, valide) {
+  if (nouveau && !valide) {
+    return cible.sorte === 'ue' ? 'btn-ajouter-ue' : `btn-ajouter-${brouillon.type}`;
+  }
+  return idModifier(cible);
+}
+
+// « Valider » : refusé s'il reste une erreur ; sinon la saisie est mise à
+// jour et les moyennes recalculées.
+function valider() {
+  const numero = etat.semestreActif;
+  const erreurs = erreursBrouillon(semestreActif(), edition.cible, edition.brouillon);
+  if (erreurs.length > 0) {
+    for (const { champ, message } of erreurs) {
+      const saisie = document.getElementById(champ);
+      if (saisie) afficherErreurChamp(saisie, message);
     }
-    case 'element-coef':
-      trouverElement(champ).coefs[champ.dataset.coefUe] = champ.value;
-      break;
-    case 'evaluation-libelle':
-      trouverEvaluation(champ).libelle = champ.value;
-      break;
-    case 'evaluation-note':
-      trouverEvaluation(champ).note = champ.value;
-      break;
-    case 'evaluation-coef':
-      trouverEvaluation(champ).coef = champ.value;
-      break;
+    donnerFocus(erreurs[0].champ);
+    annoncer(erreurs.length === 1 ? 'Un champ est à corriger.' : `${erreurs.length} champs sont à corriger.`);
+    return;
   }
+  etat.semestres[numero] = appliquerBrouillon(semestreActif(), edition.cible, edition.brouillon);
+  const focus = retourFocus(edition, true);
+  edition = null;
+  afficher(focus);
+  annoncer('Modifications validées. Moyennes recalculées.');
+}
 
-  const lire = LECTEURS[sorte];
-  if (lire) {
-    afficherErreurChamp(champ, lire(champ.value).erreur);
-  }
-  afficherResultats();
-});
+// « Annuler » (ou Échap) : le brouillon est oublié, la saisie n'a pas changé.
+function annuler() {
+  const focus = retourFocus(edition, false);
+  edition = null;
+  afficher(focus);
+  annoncer('Modifications annulées.');
+}
 
-// Boutons : ajouter ou supprimer une UE, une ligne, une évaluation.
-saisie.addEventListener('click', (event) => {
-  const bouton = event.target.closest('button[data-action]');
-  if (!bouton) return;
+// « Supprimer… » dans l'éditeur d'un bloc existant : effet immédiat, après
+// confirmation si le bloc contient des données.
+function supprimerEnEdition() {
   const numero = etat.semestreActif;
   const semestre = semestreActif();
+  const { cible, original } = edition;
+  let question = null;
+  let focus;
+  let message;
+
+  if (cible.sorte === 'ue') {
+    const code = codeUe(numero, original.numero);
+    if (semestre.elements.some((element) => String(element.coefs[cible.id] ?? '').trim() !== '')) {
+      question = `Supprimer ${code} et les coefficients saisis pour cette UE ?`;
+    }
+    focus = 'btn-ajouter-ue';
+    message = `${code} supprimée.`;
+  } else if (cible.sorte === 'element') {
+    if (original.evaluations.length > 0) {
+      question = `Supprimer « ${titreElement(original)} » et ses évaluations ?`;
+    }
+    focus = `btn-ajouter-${original.type}`;
+    message = `« ${titreElement(original)} » supprimée.`;
+  } else {
+    if (original.note.trim() !== '') {
+      question = `Supprimer l’évaluation « ${original.libelle.trim() || 'sans intitulé'} » et sa note ?`;
+    }
+    focus = idModifier({ sorte: 'element', id: cible.element });
+    message = 'Évaluation supprimée.';
+  }
+
+  if (question && !window.confirm(question)) {
+    return;
+  }
+  etat.semestres[numero] = supprimerBloc(semestre, cible);
+  edition = null;
+  afficher(focus);
+  annoncer(message);
+}
+
+// Range la valeur d'un champ de l'éditeur dans le brouillon, et affiche son
+// erreur éventuelle. Les moyennes ne bougent pas avant « Valider ».
+function majBrouillon(champ) {
+  const brouillon = edition.brouillon;
+  const valeur = champ.value;
+  // L'évaluation concernée : le brouillon lui-même (éditeur d'une évaluation),
+  // ou l'une des évaluations du brouillon (éditeur d'une ligne).
+  const evaluation = () =>
+    edition.cible.sorte === 'evaluation'
+      ? brouillon
+      : brouillon.evaluations.find((candidate) => candidate.id === champ.dataset.evaluation);
+
+  switch (champ.dataset.champ) {
+    case 'ue-numero':
+      brouillon.numero = Number(valeur);
+      break;
+    case 'ue-intitule':
+      brouillon.intitule = valeur;
+      break;
+    case 'element-code':
+      brouillon.code = valeur;
+      break;
+    case 'element-intitule':
+      brouillon.intitule = valeur;
+      break;
+    case 'element-coef':
+      brouillon.coefs[champ.dataset.ue] = valeur;
+      break;
+    case 'evaluation-libelle':
+      evaluation().libelle = valeur;
+      break;
+    case 'evaluation-note':
+      evaluation().note = valeur;
+      break;
+    case 'evaluation-coef':
+      evaluation().coef = valeur;
+      break;
+    case 'malus':
+      brouillon.malus = valeur;
+      break;
+    default:
+      return;
+  }
+  const lire = LECTEURS[champ.dataset.champ];
+  afficherErreurChamp(champ, lire ? lire(valeur).erreur : null);
+}
+
+/* ==================== Clavier et souris ==================== */
+
+// Frappe dans un champ d'un éditeur : le brouillon suit.
+zoneSemestre.addEventListener('input', (event) => {
+  if (edition !== null && event.target.dataset.champ) {
+    majBrouillon(event.target);
+  }
+});
+
+// « Valider » (bouton, ou Entrée dans un champ).
+zoneSemestre.addEventListener('submit', (event) => {
+  event.preventDefault(); // rien n'est envoyé : la page reste où elle est
+  if (edition !== null) {
+    valider();
+  }
+});
+
+// Échap dans un éditeur : comme « Annuler ».
+zoneSemestre.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && edition !== null && event.target.closest('.editeur')) {
+    event.preventDefault();
+    annuler();
+  }
+});
+
+// Boutons des vues et des éditeurs (attribut data-action).
+zoneSemestre.addEventListener('click', (event) => {
+  const bouton = event.target.closest('button[data-action]');
+  if (!bouton) return;
 
   switch (bouton.dataset.action) {
-    case 'creer-ues': {
-      for (const numeroUe of numerosUeParDefaut(numero)) {
-        semestre.ues.push(creerUe(nouvelId(), numeroUe));
-      }
-      afficherSaisie(`${semestre.ues[0].id}-intitule`);
-      annoncer(`${semestre.ues.length} UE créées.`);
+    case 'modifier':
+      ouvrir(JSON.parse(bouton.dataset.cible));
       break;
-    }
-
-    case 'ajouter-ue': {
-      // Premier numéro libre.
-      const utilises = new Set(semestre.ues.map((ue) => ue.numero));
-      const ue = creerUe(nouvelId(), NUMEROS_UE.find((n) => !utilises.has(n)));
-      semestre.ues.push(ue);
-      afficherSaisie(`${ue.id}-numero`);
-      annoncer(`${codeUe(numero, ue.numero)} ajoutée.`);
+    case 'annuler':
+      annuler();
       break;
-    }
-
-    case 'supprimer-ue': {
-      const ue = trouverUe(bouton);
-      const code = codeUe(numero, ue.numero);
-      // On demande confirmation si des coefficients ont été saisis pour cette UE.
-      const utilisee = semestre.elements.some((element) => (element.coefs[ue.id] ?? '').trim() !== '');
-      if (utilisee && !window.confirm(`Supprimer ${code} et les coefficients saisis pour cette UE ?`)) {
-        return;
-      }
-      semestre.ues = semestre.ues.filter((autre) => autre !== ue);
-      for (const element of semestre.elements) {
-        delete element.coefs[ue.id];
-      }
-      afficherSaisie('btn-ajouter-ue');
-      annoncer(`${code} supprimée.`);
+    case 'supprimer-bloc':
+      supprimerEnEdition();
       break;
-    }
-
-    case 'ajouter-element': {
-      const element = creerElement(nouvelId(), bouton.dataset.type);
-      semestre.elements.push(element);
-      afficherSaisie(`${element.id}-code`);
-      annoncer(element.type === 'ressource' ? 'Ressource ajoutée.' : 'Partie SAE ajoutée.');
-      break;
-    }
-
-    case 'supprimer-element': {
-      const element = trouverElement(bouton);
-      const nom = titreElement(element);
-      if (element.evaluations.length > 0 && !window.confirm(`Supprimer « ${nom} » et ses évaluations ?`)) {
-        return;
-      }
-      semestre.elements = semestre.elements.filter((autre) => autre !== element);
-      cartesRepliees.delete(element.id);
-      afficherSaisie(`btn-ajouter-${element.type}`);
-      annoncer(`« ${nom} » supprimée.`);
-      break;
-    }
-
     case 'ajouter-evaluation': {
-      const element = trouverElement(bouton);
+      // Dans l'éditeur d'une ligne : une évaluation vide, dans le brouillon.
       const evaluation = creerEvaluation(nouvelId());
-      element.evaluations.push(evaluation);
-      afficherSaisie(`${evaluation.id}-libelle`);
-      annoncer('Évaluation ajoutée.');
+      edition.brouillon.evaluations.push(evaluation);
+      afficher(idChamp.libelle(evaluation));
+      annoncer('Évaluation ajoutée. Elle sera enregistrée à la validation.');
       break;
     }
-
-    case 'supprimer-evaluation': {
-      const element = trouverElement(bouton);
-      const evaluation = trouverEvaluation(bouton);
-      const index = element.evaluations.indexOf(evaluation);
-      element.evaluations.splice(index, 1);
-      // Le focus va sur l'évaluation suivante, sinon sur le bouton « Ajouter ».
-      const suivante = element.evaluations[index] ?? element.evaluations[index - 1];
-      afficherSaisie(suivante ? `${suivante.id}-libelle` : `${element.id}-ajouter`);
-      annoncer('Évaluation supprimée.');
+    case 'retirer-evaluation': {
+      // Dans l'éditeur d'une ligne : retirée du brouillon (« Annuler » la rend).
+      const evaluations = edition.brouillon.evaluations;
+      const index = evaluations.findIndex((evaluation) => evaluation.id === bouton.dataset.evaluation);
+      evaluations.splice(index, 1);
+      // Le focus va sur l'évaluation suivante, sinon sur « Ajouter une évaluation ».
+      const suivante = evaluations[index] ?? evaluations[index - 1];
+      afficher(suivante ? idChamp.libelle(suivante) : `${edition.brouillon.id}-ajouter-evaluation`);
+      annoncer('Évaluation retirée. « Annuler » la remet.');
       break;
     }
   }
 });
 
-// Carte repliée ou dépliée : on s'en souvient pour les prochains affichages.
-// (« toggle » ne remonte pas jusqu'à #saisie : on l'écoute en phase de capture, avec true.)
-saisie.addEventListener(
-  'toggle',
-  (event) => {
-    const carte = event.target.closest('[data-element-id]');
-    if (!carte) return;
-    if (event.target.open) {
-      cartesRepliees.delete(carte.dataset.elementId);
-    } else {
-      cartesRepliees.add(carte.dataset.elementId);
-    }
-  },
-  true,
-);
+// « Créer les UE du semestre » : les UE par défaut, d'un coup.
+boutonCreerUes.addEventListener('click', () => {
+  if (!fermerEdition()) return;
+  const semestre = semestreActif();
+  for (const numeroUe of numerosUeParDefaut(etat.semestreActif)) {
+    semestre.ues.push(creerUe(nouvelId(), numeroUe));
+  }
+  afficher(idModifier({ sorte: 'ue', id: semestre.ues[0].id }));
+  annoncer(`${semestre.ues.length} UE créées.`);
+});
 
-// Cible de la note à viser (commune à tous les semestres).
+// « Ajouter une UE », « Ajouter une ressource », « Ajouter une SAE… ».
+boutonAjouterUe.addEventListener('click', () => ouvrirNouveau('ue'));
+for (const bouton of boutonsAjouterLigne) {
+  bouton.addEventListener('click', () => ouvrirNouveau(bouton.dataset.type));
+}
+
+// Cible de la note à viser (commune à tous les semestres) : un réglage, pas
+// une donnée de la saisie. Les notes à viser se mettent à jour pendant la frappe.
 champCible.addEventListener('input', () => {
   etat.cible = champCible.value;
   afficherErreurChamp(champCible, lireCible(champCible.value).erreur);
-  afficherResultats();
+  afficher();
 });
 
 /* ==================== Import des PDF ==================== */
@@ -850,6 +1174,11 @@ const ongletDu = (numero) => onglets.find((onglet) => Number(onglet.dataset.seme
  */
 async function importerFichier(sorte, fichier) {
   const { analyser, preparer, titre } = IMPORTS[sorte];
+  // L'éditeur ouvert est fermé d'abord (après confirmation s'il a des modifications).
+  if (!fermerEdition()) {
+    afficherMessageImport('Import annulé', 'Valide ou annule d’abord la modification en cours.');
+    return;
+  }
   patienter(true);
   try {
     // 1. Lecture du PDF. pdf.js n'est chargé qu'ici, au premier import.
@@ -881,7 +1210,7 @@ async function importerFichier(sorte, fichier) {
 
     // 6. On montre le premier semestre importé (sauf si on y est déjà), puis le rapport.
     if (numeros.includes(etat.semestreActif)) {
-      afficherSaisie();
+      afficher();
     } else {
       choisirSemestre(ongletDu(numeros[0]), false);
     }
@@ -965,26 +1294,32 @@ function itemACompleter({ texte, cible }) {
   return item;
 }
 
-// Identifiant du champ visé (voir creerLigneEvaluation et creerCaseCoef).
+// Identifiant du champ visé, dans l'éditeur de son bloc (voir idChamp, edition.js).
 function idDuChamp(cible) {
   if (cible.champ === 'evaluation-coef') {
-    return `${cible.evaluation}-coef`;
+    return idChamp.coefEvaluation({ id: cible.evaluation });
   }
   // Coefficient d'une ligne : sa première case d'UE (ou son code, sans UE).
-  return cible.ue ? `${cible.element}-coef-${cible.ue}` : `${cible.element}-code`;
+  return cible.ue ? idChamp.coef({ id: cible.element }, { id: cible.ue }) : idChamp.code({ id: cible.element });
 }
 
-// Ouvre le semestre du champ, puis lui donne le focus.
+// Ouvre le semestre du champ, puis l'éditeur de son bloc, avec le curseur dans le champ.
 function allerAuChamp(cible) {
   if (cible.semestre !== etat.semestreActif) {
+    if (!fermerEdition()) return;
     choisirSemestre(ongletDu(cible.semestre), false);
   }
-  const id = idDuChamp(cible);
-  if (document.getElementById(id)) {
-    donnerFocus(id);
-  } else {
+  // Un coefficient d'évaluation s'édite dans l'éditeur de l'évaluation ;
+  // un coefficient de ligne, dans celui de la ligne.
+  const bloc =
+    cible.champ === 'evaluation-coef'
+      ? { sorte: 'evaluation', element: cible.element, id: cible.evaluation }
+      : { sorte: 'element', id: cible.element };
+  if (brouillonDe(semestreActif(), bloc) === null) {
     annoncer('Ce champ n’existe plus : la ligne a été supprimée.');
+    return;
   }
+  ouvrir(bloc, { focus: idDuChamp(cible) });
 }
 
 // Affiche le rapport, avec un bouton pour le fermer, et lui donne le focus :
@@ -1021,16 +1356,18 @@ for (const [sorte, { bouton, fichier }] of Object.entries(IMPORTS)) {
 // Modèle « tabs » de l'ARIA : un seul onglet atteignable avec Tab, on passe
 // de l'un à l'autre avec les flèches gauche/droite (et Début/Fin).
 
-function choisirSemestre(onglet, donnerFocus) {
+function choisirSemestre(onglet, focusSurOnglet) {
+  // L'éditeur ouvert appartient au semestre affiché : on le ferme d'abord.
+  if (!fermerEdition()) return;
   etat.semestreActif = Number(onglet.dataset.semestre);
   for (const autre of onglets) {
     const actif = autre === onglet;
     autre.setAttribute('aria-selected', String(actif));
     autre.tabIndex = actif ? 0 : -1;
   }
-  saisie.setAttribute('aria-labelledby', onglet.id);
-  if (donnerFocus) onglet.focus();
-  afficherSaisie();
+  zoneSemestre.setAttribute('aria-labelledby', onglet.id);
+  if (focusSurOnglet) onglet.focus();
+  afficher();
 }
 
 onglets.forEach((onglet, i) => {
@@ -1103,7 +1440,9 @@ formAnnee.addEventListener('submit', (event) => {
     return;
   }
 
-  // 2. Les semestres de l'année ont déjà une saisie : on demande avant de la remplacer.
+  // 2. Les semestres de l'année ont déjà une saisie : on demande avant de la
+  //    remplacer (et l'éditeur ouvert est fermé d'abord).
+  if (!fermerEdition()) return;
   const numeros = semestresDe(annee);
   const actuels = Object.fromEntries(numeros.map((numero) => [numero, etat.semestres[numero]]));
   if (
@@ -1125,15 +1464,7 @@ formAnnee.addEventListener('submit', (event) => {
   }
   delete etat.officiels.competences[numeros[0]];
 
-  // 4. Les cartes créées sont repliées : sans note, la page reste courte, et
-  //    on ouvre celle dont on veut saisir les notes.
-  for (const semestre of Object.values(semestres)) {
-    for (const element of semestre.elements) {
-      cartesRepliees.add(element.id);
-    }
-  }
-
-  // 5. On montre le premier semestre de l'année, et on dit ce qui a été créé
+  // 4. On montre le premier semestre de l'année, et on dit ce qui a été créé
   //    (zone role="status" : lue par les lecteurs d'écran).
   choisirSemestre(ongletDu(numeros[0]), false);
   const nom = parcours === 'commun' ? `${nomAnnee(annee)} année` : `${nomAnnee(annee)} année, parcours ${parcours}`;
@@ -1155,4 +1486,4 @@ window.addEventListener('beforeunload', (event) => {
 });
 
 /* ==================== Démarrage ==================== */
-afficherSaisie();
+afficher();
