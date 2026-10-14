@@ -25,6 +25,7 @@ import {
   lireCoefUe,
   lireMalus,
   lireCible,
+  coefDuLibelle,
   analyserSemestre,
   competencesAnnee,
   contientDesDonnees,
@@ -428,11 +429,24 @@ function vueEvaluation(evaluation, element, analyse) {
   const note = evaluation.note.trim();
   const coef = evaluation.coef.trim();
 
+  // La note et le coef. Le coef n'est pas répété quand le libellé le dit
+  // déjà (« Contrôle - coef 1 ») ; « coef inconnu » est toujours montré.
+  const valeurs = creer('span', 'evaluation-vue__valeurs');
+  valeurs.append(
+    creer('span', note ? 'evaluation-vue__note' : 'evaluation-vue__note evaluation-vue__note--vide', note ? `${note} / 20` : 'pas encore notée'),
+  );
+  const coefLu = lireCoefEvaluation(evaluation.coef).valeur;
+  if (coef === '') {
+    valeurs.append(creer('span', 'evaluation-vue__coef evaluation-vue__coef--inconnu', 'coef inconnu'));
+  } else if (coefLu === null || coefDuLibelle(libelle) !== coefLu) {
+    valeurs.append(creer('span', 'evaluation-vue__coef', `coef ${coef}`));
+  }
+
+  // Sur téléphone, le libellé et l'engrenage sont sur la même ligne, les valeurs dessous (style.css).
   const tete = creer('div', 'evaluation-vue__tete bloc-tete');
   tete.append(
     creer('span', 'evaluation-vue__libelle', libelle),
-    creer('span', note ? 'evaluation-vue__note' : 'evaluation-vue__note evaluation-vue__note--vide', note ? `${note} / 20` : 'pas encore notée'),
-    creer('span', coef ? 'evaluation-vue__coef' : 'evaluation-vue__coef evaluation-vue__coef--inconnu', coef ? `coef ${coef}` : 'coef inconnu'),
+    valeurs,
     boutonModifier(`l’évaluation « ${libelle} » (${nomLigne(element)})`, {
       sorte: 'evaluation',
       element: element.id,

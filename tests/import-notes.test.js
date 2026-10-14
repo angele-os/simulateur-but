@@ -6,7 +6,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { importerNotes } from '../js/import-notes.js';
+import { importerNotes, contientLigneDeTitres } from '../js/import-notes.js';
 
 // Charge une fixture de tests/fixtures/.
 function chargerFixture(nom) {
@@ -482,6 +482,27 @@ describe('cas particuliers (relevés construits dans le test)', () => {
   test('colonne « Session 2 » sans aucune note : pas de message', () => {
     const resultat = importerNotes(releve([...DEBUT_S3, [5, 'Examen - coef 1', { note: 8 }]], { session2: true }));
     assert.deepEqual(resultat.rapport.aVerifier, []);
+  });
+
+  test('bas de la dernière page (« Informations », « Signification des codes… », « -Page 2- ») : écarté sans message', () => {
+    const elements = releve([...DEBUT_S3, [5, 'Contrôle - coef 1', { note: 10 }]]); // dernière rangée en y = 724
+    // Ces lignes sont dans la colonne Code, sans libellé : avant, chacune
+    // donnait « Une ligne sans libellé a été ignorée ».
+    elements.push(
+      element('Informations', 30, 600),
+      element('Signification des codes résultats :', 30, 586),
+      element('ADM : Admis', 30, 572),
+      element('-Page 2-', 300, 30),
+    );
+    const resultat = importerNotes(elements);
+    assert.deepEqual(resultat.rapport.aVerifier, []);
+    assert.equal(resultat.rapport.lignesNonLues, 4);
+    assert.deepEqual(resultat.semestres[0].elements[0].evaluations.map((e) => e.libelle), ['Contrôle - coef 1']);
+  });
+
+  test('contientLigneDeTitres : vrai pour un relevé, faux pour un autre document', () => {
+    assert.equal(contientLigneDeTitres(releve(DEBUT_S3)), true);
+    assert.equal(contientLigneDeTitres([element('UE1.1', 300, 800), element('R1.01 Ressource inventée', 40, 780)]), false);
   });
 
   test('légende en bas d’une page, au milieu d’une ressource : elle ne devient pas une évaluation', () => {

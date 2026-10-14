@@ -15,6 +15,7 @@ import {
   lireCoefUe,
   lireMalus,
   lireCible,
+  coefDuLibelle,
   modeleUe,
   analyserSemestre,
   competencesAnnee,
@@ -101,6 +102,22 @@ describe('lecture des nombres saisis', () => {
     assert.deepEqual(lireCoefUe('0'), { valeur: 0, erreur: null });
     assert.equal(lireMalus('25').erreur, 'Le malus doit être entre 0 et 20.');
     assert.equal(lireCible('20,5').erreur, 'La cible doit être entre 0 et 20.');
+  });
+});
+
+describe('coefDuLibelle : le coef écrit à la fin d’un libellé (pour ne pas l’afficher deux fois)', () => {
+  test('coef, Coef, COEF, avec virgule ou point, « coefficient »', () => {
+    assert.equal(coefDuLibelle('Contrôle - coef 2'), 2);
+    assert.equal(coefDuLibelle('TP - Coef 1,5'), 1.5);
+    assert.equal(coefDuLibelle('Interro - COEF 0.5'), 0.5);
+    assert.equal(coefDuLibelle('Oral - coefficient : 3 '), 3);
+  });
+
+  test('pas de coef chiffré à la fin : null', () => {
+    assert.equal(coefDuLibelle('Stage - Note 1 - Coef ??'), null);
+    assert.equal(coefDuLibelle('PPP : Note 1'), null);
+    assert.equal(coefDuLibelle('Coef 2 : projet'), null); // pas à la fin
+    assert.equal(coefDuLibelle(''), null);
   });
 });
 

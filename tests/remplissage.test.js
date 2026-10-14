@@ -302,6 +302,38 @@ describe('import du relevé de notes', () => {
     assert.ok(!s6.elements.some((e) => e.code === 'Portfolio' || e.code === 'Stage'));
   });
 
+  test('coef inconnu sans effet : seule évaluation, notée → coef 1, et c’est dit dans le rapport', () => {
+    // Relevé INVENTÉ : un stage dont l'unique évaluation est notée « Coef ?? ».
+    const evaluation = (libelle, note, coef) => ({ libelle, note, coef, ue: null });
+    const element = (type, libelle, evaluations) => ({
+      type, code: null, libelle, ue: 'UE6.1', officiel: { moyenne: null, resultat: null }, evaluations, matieres: [],
+    });
+    const releveInvente = (elements) => ({
+      competences: [],
+      semestres: [{ numero: 6, libelle: 'SEMESTRE 6', officiel: { moyenne: null, resultat: null }, malus: null, ues: [], elements }],
+      rapport: { lignesNonLues: 0, ignore: [], aVerifier: [], coefsInconnus: [], erreurs: [] },
+    });
+
+    const seule = preparerImportReleve(saisieVide(), releveInvente([element('stage', 'Stage', [evaluation('Stage - Note 1 - Coef ??', 15.6, null)])]), fabriqueIds());
+    assert.deepEqual(evaluations(ligne(seule.semestres[6], 'Stage')), [['Stage - Note 1 - Coef ??', '15,6', '1']]);
+    assert.ok(
+      seule.rapport.compris.includes(
+        'S6 · Stage : « Stage - Note 1 - Coef ?? » est sa seule évaluation. Son coefficient, inconnu, ne change pas la moyenne : il est mis à 1.',
+      ),
+    );
+    assert.ok(!seule.rapport.aCompleter.some((a) => a.cible.champ === 'evaluation-coef'));
+
+    // Pas encore notée, ou à côté d'une autre évaluation : le coef compte, on le demande.
+    for (const evaluationsStage of [
+      [evaluation('Stage - Coef ??', null, null)],
+      [evaluation('Stage - Coef ??', 15.6, null), evaluation('Mémoire - coef 2', null, 2)],
+    ]) {
+      const proposition = preparerImportReleve(saisieVide(), releveInvente([element('stage', 'Stage', evaluationsStage)]), fabriqueIds());
+      assert.equal(ligne(proposition.semestres[6], 'Stage').evaluations[0].coef, '');
+      assert.ok(proposition.rapport.aCompleter.some((a) => a.cible.champ === 'evaluation-coef'));
+    }
+  });
+
   test('S3 : une partie SAE par UE, avec un coefficient dans son UE seulement et ses évaluations seulement', () => {
     const s3 = importerTableauPuisReleve().semestres[3];
     // La ligne « S3.01 » du tableau est remplacée par ses parties.

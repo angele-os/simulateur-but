@@ -39,14 +39,19 @@ const MOTIFS_PERSONNELS = [
   /[^\s@]+@[^\s@]+\.[^\s@]+/, // une adresse e-mail
   /date\s+d['’]\s*[ée]dition/i, // « Date d'édition »
   /\bpage\s*\d+\s*(?:\/|sur)\s*\d+/i, // pied de page « Page 1/2 »
+  /^-\s*page\s*\d+\s*-$/i, // pied de page « -Page 2- », seul sur sa ligne
 ];
 
 // Légende du bas de page : « ADM : Admis   AJ : Ajourné … ». Ce n'est pas
 // une ligne du tableau. Sans ce filtre, rangée par son retrait, elle
 // tomberait sous la ligne précédente (une ligne SENSE, une ressource…).
+// Au-dessus de la légende, la dernière page porte aussi « Informations »,
+// puis « Signification des codes résultats : », dans la colonne Code.
 const MOTIFS_LEGENDE = [
   /^(?:ADM|ADJ|AJ|AJAC|ATT|CMP|DEF|NAR|NV|VAL|V\/COR|V)\s*:\s/, // un code de résultat, puis « : »
   /^l[ée]gende\b/i,
+  /^informations?\s*:?$/i, // titre seul sur sa ligne
+  /^signification\s+des\s+codes\b/i,
 ];
 
 // Titres des colonnes de valeurs. « Code » et « Libellé » sont traités à part.
@@ -255,6 +260,18 @@ function lireRangees(lignes, rapport) {
 }
 
 // Vrai si la ligne contient au moins les titres « Libellé » et « Session 1 ».
+/**
+ * Vrai si ces éléments contiennent une ligne de titres de relevé
+ * (« Code Libellé Session 1 … »). Sert à reconnaître un relevé parmi
+ * d'autres PDF (scripts/verifier-releves.mjs), sans rien lire d'autre.
+ *
+ * @param {{ texte: string, x: number, y: number, page: number }[]} elements
+ */
+export function contientLigneDeTitres(elements) {
+  const visibles = elements.filter((element) => element.taille <= TAILLE_MAX_TEXTE);
+  return regrouperEnLignes(visibles).some(estLigneDeTitres);
+}
+
 function estLigneDeTitres(ligne) {
   const textes = ligne.elements.map((element) => element.texte);
   return (

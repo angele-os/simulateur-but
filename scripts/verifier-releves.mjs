@@ -24,7 +24,7 @@ import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 import referentiel from '../data/referentiel.js';
 import { elementsDeLaPage } from '../js/lecture-pdf.js';
-import { importerNotes } from '../js/import-notes.js';
+import { importerNotes, contientLigneDeTitres } from '../js/import-notes.js';
 import { preparerImportReleve, cleCode } from '../js/remplissage.js';
 import { parcoursDe, creerSemestresAnnee, semestresDe, nomAnnee } from '../js/choix-annee.js';
 import { creerSemestre, analyserSemestre, competencesAnnee, comparerOfficiel, ECART_SIGNALE } from '../js/modele.js';
@@ -99,16 +99,28 @@ const ENTETE = `  ${'Moyenne'.padEnd(26)} ${'calculé'.padStart(8)} ${'officiel'
 
 // ---------- Programme principal ----------
 
-// Les relevés : les PDF de prive/ dont le nom parle de « notes ».
-const fichiers = readdirSync(dossier).filter((nom) => /notes/i.test(nom) && /\.pdf$/i.test(nom)).sort();
-if (fichiers.length === 0) {
-  console.log('Aucun relevé « Détail des notes » dans prive/.');
+// Les relevés : les PDF de prive/ qui contiennent une ligne de titres de
+// relevé (« Code Libellé Session 1 … »), quel que soit leur nom. Les autres
+// (tableaux des coefficients…) sont écartés.
+const releves = [];
+for (const fichier of readdirSync(dossier).filter((nom) => /\.pdf$/i.test(nom)).sort()) {
+  const elements = await lirePdf(new URL(fichier, dossier));
+  if (contientLigneDeTitres(elements)) {
+    releves.push({ fichier, elements });
+  }
+}
+
+// Aucun relevé : on s'arrête en ERREUR (code de sortie 1). Afficher
+// « 0 écart » laisserait croire que tout a été vérifié.
+if (releves.length === 0) {
+  console.error('Aucun relevé « Détail des notes » trouvé dans prive/ : rien n’a été vérifié.');
+  process.exit(1);
 }
 
 let ecartsSignales = 0;
-for (const [index, fichier] of fichiers.entries()) {
-  // 1. Lecture et analyse du relevé.
-  const releve = importerNotes(await lirePdf(new URL(fichier, dossier)));
+for (const [index, { fichier, elements }] of releves.entries()) {
+  // 1. Analyse du relevé.
+  const releve = importerNotes(elements);
   console.log(`\n=================== Relevé ${index + 1} : ${fichier} ===================`);
   if (releve.semestres.length === 0) {
     console.log('  Non lu :', releve.rapport.erreurs.map((e) => e.message).join(' '));

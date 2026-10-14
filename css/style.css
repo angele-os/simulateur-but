@@ -759,6 +759,14 @@ select.input {
   overflow-wrap: anywhere;
 }
 
+/* La note et le coef, côte à côte */
+.evaluation-vue__valeurs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .25rem .75rem;
+}
+
 .evaluation-vue__note,
 .evaluation-vue__coef {
   font-size: .88rem;
@@ -1262,6 +1270,28 @@ select.input {
   .panel {
     -webkit-backdrop-filter: blur(14px) saturate(170%);
     backdrop-filter: blur(14px) saturate(170%);
+  }
+}
+
+/* Sous 600px (téléphone) : dans la tête d'un bloc, l'engrenage reste sur la
+   ligne du TITRE ; la moyenne, la note et le coef passent dessous. */
+@media (max-width: 599.98px) {
+  .bloc-tete {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: .15rem .5rem;
+  }
+
+  /* Tout dans la première colonne, l'un sous l'autre… */
+  .bloc-tete > * {
+    grid-column: 1;
+  }
+
+  /* … sauf l'engrenage : à droite, sur la première ligne (celle du titre). */
+  .bloc-tete > .engrenage {
+    grid-column: 2;
+    grid-row: 1;
   }
 }
 

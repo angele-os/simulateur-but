@@ -86,6 +86,7 @@ Les cinq tableaux de l'IUT (BUT1 tronc commun, BUT2 et BUT3 en parcours RA et DA
 - Les lignes SENSE, « Certificat SENSE » et « Se saisir des Enjeux… ».
 - La colonne « Rang » (par exemple `14/30`).
 - **La ligne du diplôme**, par exemple `B2 - Informatique PT DACS (FI)` : ignorée **sans message**. Si elle est plus à gauche que les autres lignes, celles-ci sont « dessous » dans l'arbre : elles sont lues normalement.
+- **Le bas de la dernière page**, dans la colonne Code, au-dessus de la légende : `Informations`, puis `Signification des codes résultats :`. Ces lignes sont écartées comme la légende, **sans message**. Le pied de page `-Page N-` est écarté comme les autres pieds de page.
 - **La légende du bas de page**, par exemple `ADM : Admis   AJ : Ajourné` : ce n'est **pas** une ligne SENSE, ni une ligne du tableau. On l'écarte comme un pied de page, **avant** de construire l'arbre. Sinon, rangée par son retrait, elle tombe sous la ligne précédente : une ligne SENSE, ou une ressource, dont elle devient une fausse évaluation.
 
 ### Colonnes
@@ -116,7 +117,7 @@ Les niveaux observés, du plus à gauche au plus à droite :
 | `R3.01 Développement web`, `R4.B.09 …` | Ressource, avec sa moyenne officielle |
 | `SAE 3.01 …`, `Portfolio`, `Stage` | Parties du pôle SAE |
 | `… - coef 2`, `… - Coef 3` | Évaluation. Le coefficient est **dans le libellé** : on le cherche sans tenir compte des majuscules |
-| `… - Coef ??` | Coefficient inconnu : **on le demande à l'utilisateur**, sans le deviner |
+| `… - Coef ??` | Coefficient inconnu : **on le demande à l'utilisateur**, sans le deviner. **Exception** : si c'est la **seule** évaluation de sa ligne, et qu'elle est notée, le coefficient ne change pas la moyenne (elle vaut la note). On met alors 1, et on le dit dans le rapport. Dès qu'il y a une autre évaluation, même pas encore notée, on le demande |
 | `Mati 1 Anglais` | Niveau intermédiaire, entre une ressource (Langues) et ses évaluations |
 | `Malus absences injustifiées …` | Valeur à retrancher (par exemple `0.05`). Elle peut être vide ou à 0 |
 | `… - Coef 1` avec `ABJ` comme note | Absence justifiée : l'évaluation est **neutralisée** par l'IUT. Elle n'est pas importée (c'est signalé), ce qui donne le même calcul |

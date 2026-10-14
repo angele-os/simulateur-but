@@ -605,6 +605,21 @@ function versSaisie(evaluation, { nouvelId }) {
  */
 function remplacerEvaluations(ligne, evaluationsReleve, contexte) {
   const nouvelles = evaluationsReleve.map((evaluation) => versSaisie(evaluation, contexte));
+
+  // Coefficient inconnu SANS EFFET : la ligne n'a qu'une évaluation, notée,
+  // au « Coef ?? » (le stage, souvent). Sa moyenne est sa note, quel que soit
+  // le coefficient : on met 1, et on le dit. S'il y avait d'autres
+  // évaluations, même pas encore notées, le coefficient compterait (pour
+  // leur note à viser, puis pour la moyenne) : on continue de le demander.
+  const [seule] = nouvelles;
+  if (nouvelles.length === 1 && seule.note !== '' && seule.coef === '') {
+    seule.coef = '1';
+    contexte.rapport.compris.push(
+      `S${contexte.n} · ${nomLigne(ligne)} : « ${seule.libelle.trim() || 'évaluation sans intitulé'} » est sa seule évaluation. ` +
+        'Son coefficient, inconnu, ne change pas la moyenne : il est mis à 1.',
+    );
+  }
+
   if (ligne.evaluations.some(aDuContenu) && !memesEvaluations(ligne.evaluations, nouvelles)) {
     contexte.remplaces.push(`S${contexte.n} · évaluations de ${nomLigne(ligne)}`);
   }

@@ -134,6 +134,19 @@ export function lireMalus(texte) {
   return lireNombre(texte, { vide: 0, min: 0, max: 20, message: 'Le malus doit être entre 0 et 20.' });
 }
 
+/**
+ * Le coefficient écrit à la FIN d'un libellé, ou null.
+ * « Contrôle - coef 2 » → 2 ; « TP - Coef 1,5 » → 1.5 ; « Stage - Coef ?? » → null.
+ * Sert à ne pas afficher deux fois « coef 2 » dans une évaluation.
+ *
+ * @param {string} libelle
+ * @returns {number|null}
+ */
+export function coefDuLibelle(libelle) {
+  const trouve = /\bcoef(?:ficient)?\.?\s*:?\s*(\d+(?:[.,]\d+)?)\s*$/i.exec(String(libelle ?? '').trim());
+  return trouve ? Number(trouve[1].replace(',', '.')) : null;
+}
+
 // Cible de la note à viser : vide = 10.
 export function lireCible(texte) {
   return lireNombre(texte, {
