@@ -1,0 +1,5 @@
+# Tous les robots peuvent explorer le site.
+# (La page 404 a sa propre balise « noindex ». Les PDF choisis par l'utilisateur
+# ne sont jamais envoyés au serveur : il n'y a rien d'autre à cacher.)
+User-agent: *
+Allow: /

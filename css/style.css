@@ -230,6 +230,15 @@ a:hover {
     0 34px 64px -30px rgba(90, 35, 95, .4);
 }
 
+/* Page 404 : panneau court avec un bouton de retour */
+.panel--court {
+  max-width: 40rem;
+}
+
+.panel__action {
+  margin-top: 1.25rem;
+}
+
 /* Saisie puis résultats ; côte à côte sur grand écran (voir Responsive) */
 .app {
   display: grid;

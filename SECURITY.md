@@ -90,11 +90,23 @@ Une dépendance compromise, ou chargée depuis un serveur tiers, pourrait exécu
 - **Rien d'autre n'utilise de fonction dangereuse.** La politique ne fournit pas `createHTML` ni `createScript` : `innerHTML` et `eval` restent refusés pour tout le monde.
 - **Anciens navigateurs.** Sans Trusted Types, l'adresse est passée telle quelle, après la même vérification. La CSP (`script-src 'self'`, qui s'applique aussi aux workers) n'autorise de toute façon que les scripts du site.
 
+## Menace 6 : publier par erreur, ou publier un site cassé
+
+Le site est publié sur GitHub Pages par le workflow `.github/workflows/deploiement.yml`. Un mauvais déploiement pourrait mettre en ligne un fichier qui ne devait pas l'être (un vrai relevé, les scripts, les tests) ou un site cassé.
+
+**Ce qui protège** :
+- **Liste blanche.** Le job `build` copie dans `_site` **uniquement** les fichiers servis au navigateur : `index.html`, `404.html`, `favicon.svg`, `robots.txt`, `css/`, `js/`, `fonts/`, `data/referentiel.js` et `vendor/pdfjs/` (`pdf.min.mjs`, `pdf.worker.min.mjs`, `LICENSE`). Tout le reste n'est jamais publié, même par erreur : `prive/`, `docs/`, `tests/`, `scripts/`, `node_modules/` et `data/referentiel.json`. La liste des fichiers publiés est affichée dans le journal du workflow.
+- **Un site complet.** `tests/ci.test.js` suit tout ce que la page charge (`href`/`src` des pages, `url()` du CSS, imports des modules JS jusqu'au worker de pdf.js). Il échoue si l'un de ces fichiers manque dans la liste blanche, ou si la liste publie un dossier privé ou inutile.
+- **Pas de publication sans tests.** Le job `deploy` dépend de `test` et de `build` (`needs: [test, build]`). Si un test échoue, rien n'est publié et l'ancienne version reste en ligne. Le workflow « Tests » vérifie aussi chaque pull request avant la fusion.
+- **Droits minimaux.** Le workflow ne peut que lire le dépôt (`contents: read`). Seul le job `deploy` reçoit `pages: write` (publier sur Pages) et `id-token: write` : ce jeton prouve à GitHub Pages que la publication vient bien de ce workflow, de ce dépôt. Aucun secret n'est stocké. Le code est récupéré avec `persist-credentials: false`.
+- **Actions épinglées par empreinte SHA.** Une étiquette (`@v5`) peut être déplacée vers un autre code, une empreinte non. Un test vérifie que chaque action est épinglée par une empreinte complète.
+- **Un déploiement à la fois** (`concurrency: pages`, sans annulation) : jamais un site à moitié publié.
+
 ---
 
 ## Limites connues
 
-- **La CSP est dans une balise `<meta>`.** Certaines directives n'y fonctionnent pas, notamment `frame-ancestors` (protection contre l'affichage de la page dans un cadre). Si l'hébergeur le permet, envoie aussi la CSP en **en-tête HTTP**, avec `frame-ancestors 'none'`.
-- **Le worker n'hérite pas de la CSP de la page.** Un worker chargé depuis une adresse du site reçoit la CSP des en-têtes HTTP de **son propre fichier**, pas celle de la balise `<meta>`. Sans en-tête, `connect-src 'none'` ne s'applique donc pas à l'intérieur du worker. `isEvalSupported: false` et les limites de taille réduisent ce risque, mais l'hébergeur devrait aussi envoyer la CSP sur `vendor/pdfjs/pdf.worker.min.mjs`.
+- **La CSP est dans une balise `<meta>`.** GitHub Pages ne permet pas d'envoyer ses propres en-têtes HTTP. Certaines directives ne fonctionnent pas dans une balise `<meta>`, notamment `frame-ancestors` (protection contre l'affichage de la page dans un cadre). Pour l'ajouter, il faudrait un hébergeur, ou un intermédiaire, qui envoie la CSP en **en-tête HTTP**, avec `frame-ancestors 'none'`.
+- **Le worker n'hérite pas de la CSP de la page.** Un worker chargé depuis une adresse du site reçoit la CSP des en-têtes HTTP de **son propre fichier**, pas celle de la balise `<meta>`. Sur GitHub Pages, il n'y en a pas : `connect-src 'none'` ne s'applique donc pas à l'intérieur du worker. `isEvalSupported: false` et les limites de taille réduisent ce risque. Avec un hébergeur qui envoie des en-têtes, il faudrait aussi envoyer la CSP sur `vendor/pdfjs/pdf.worker.min.mjs`.
 - **La mémoire de l'onglet** contient les notes tant qu'il est ouvert. Une extension de navigateur malveillante pourrait les lire. C'est hors de portée de l'app.
 - **Les résultats sont indicatifs.** Seul le relevé officiel fait foi (voir `docs/FORMAT-PDF.md`, règle 8).
