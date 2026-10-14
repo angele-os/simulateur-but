@@ -1,0 +1,54 @@
+name: Tests
+
+# Lancé à chaque push sur main, et sur chaque pull request vers main
+# (dont celles de Dependabot).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Le workflow ne peut que LIRE le dépôt : il ne publie et ne modifie rien.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: npm test (Node 24)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Garde-fou : le dépôt est public. Aucun PDF suivi par Git en dehors des
+      # fixtures inventées, et rien du dossier prive/ (mes vrais relevés).
+      - name: Aucune donnée personnelle
+        run: |
+          interdits="$(git ls-files -- ':(icase)*.pdf' 'prive/' | grep -v '^tests/fixtures/' || true)"
+          if [ -n "$interdits" ]; then
+            echo "::error::Fichiers interdits dans le dépôt (vrais PDF ou dossier prive/) :"
+            echo "$interdits"
+            exit 1
+          fi
+          echo "Aucun PDF hors de tests/fixtures/, rien dans prive/."
+
+      - name: Installer Node.js 24
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      # npm ci installe EXACTEMENT les versions de package-lock.json, et
+      # vérifie l'empreinte de chaque paquet téléchargé.
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Lancer les tests
+        run: npm test
+
+      # Échoue si une dépendance a une faille connue de gravité haute ou critique.
+      - name: Vérifier les failles connues des dépendances
+        run: npm audit --audit-level=high

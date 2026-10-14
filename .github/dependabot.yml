@@ -1,0 +1,30 @@
+# Dependabot : chaque lundi, il propose une pull request quand une dépendance
+# sort en nouvelle version :
+#   - npm : pdfjs-dist (package.json et package-lock.json) ;
+#   - github-actions : les actions de .github/workflows/. Il met à jour
+#     l'empreinte SHA ET le commentaire de version (# v7.0.1) en même temps.
+# Chaque pull request lance le workflow « Tests ». Pour pdfjs-dist, voir
+# CONTRIBUTING.md : il faut d'abord recopier pdf.js dans vendor/.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    # Messages au format Conventional Commits : « chore(deps): bump pdfjs-dist … »
+    commit-message:
+      prefix: chore
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    # « chore(deps): bump actions/checkout … »
+    commit-message:
+      prefix: chore
+      include: scope
