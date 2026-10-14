@@ -77,7 +77,8 @@ const TYPES_DE_LIGNES = [
   { type: 'sense', motif: /^se saisir des enjeux/i },
   { type: 'diplome', motif: /^B\d\s*-\s*Informatique\b/i }, // « B2 - Informatique PT DACS (FI) »
   { type: 'malus', motif: /^malus\b/i },
-  { type: 'pole', motif: /^p[ôo]le\s+(sae|ressources?)\b/i },
+  // Pôle : « Pôle SAE », « Pôle Ressource(s) », ou en abrégé « Pôle Res » / « Pôle RES ».
+  { type: 'pole', motif: /^p[ôo]le\s+(sae|res(?:sources?)?)\b/i },
   { type: 'evaluation', motif: MOTIF_COEF },
   { type: 'competence', motif: /^(C\d)\b\s*(.*)$/ },
   { type: 'semestre', motif: /^semestre\s+(\d)\b/i },

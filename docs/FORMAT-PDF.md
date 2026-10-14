@@ -112,13 +112,14 @@ Les niveaux observés, du plus à gauche au plus à droite :
 | `C1 Réaliser un développement… Niveau 2` | Moyenne **officielle** d'une compétence sur l'année |
 | `SEMESTRE 3 BUT Informatique` | Début d'un semestre |
 | `UE3.1 Aller jusqu'à…` | Moyenne **officielle** de l'UE, avec son résultat |
-| `Pôle SAE UE 3.1` / `Pôle Ressource UE 3.1` | Moyennes **officielles** des pôles |
+| `Pôle SAE UE 3.1` / `Pôle Ressource UE 3.1` | Moyennes **officielles** des pôles. Au BUT1, on trouve aussi l'abrégé `Pôle Res UE 1.5` ou `Pôle RES UE 2.1` |
 | `R3.01 Développement web`, `R4.B.09 …` | Ressource, avec sa moyenne officielle |
 | `SAE 3.01 …`, `Portfolio`, `Stage` | Parties du pôle SAE |
 | `… - coef 2`, `… - Coef 3` | Évaluation. Le coefficient est **dans le libellé** : on le cherche sans tenir compte des majuscules |
 | `… - Coef ??` | Coefficient inconnu : **on le demande à l'utilisateur**, sans le deviner |
 | `Mati 1 Anglais` | Niveau intermédiaire, entre une ressource (Langues) et ses évaluations |
 | `Malus absences injustifiées …` | Valeur à retrancher (par exemple `0.05`). Elle peut être vide ou à 0 |
+| `… - Coef 1` avec `ABJ` comme note | Absence justifiée : l'évaluation est **neutralisée** par l'IUT. Elle n'est pas importée (c'est signalé), ce qui donne le même calcul |
 
 ### Pièges
 - **Une ressource n'apparaît qu'une seule fois**, sous le pôle de la **première** UE où elle compte. Pour savoir dans quelles autres UE elle compte, et avec quel poids, il faut le **tableau des coefficients**.
@@ -147,10 +148,15 @@ Ces règles ont été vérifiées sur un relevé réel : **23 moyennes officiell
    - ⚠️ En JavaScript, `12.2055` est stocké en réalité `12.20549999…`. Un arrondi naïf donne donc 12,205.
    - Il faut arrondir avec une petite marge, ou calculer en millièmes entiers. **Ce cas doit avoir son test.**
 7. **Compétence (année)** = moyenne simple des 2 UE de même numéro de l'année. Par exemple, UE3.1 et UE4.1 donnent C1.
-8. **Écart observé** : sur une UE, le pôle SAE officiel ne correspond pas aux coefficients écrits dans les libellés. Il y a environ 0,9 point d'écart. Le coefficient affiché n'est donc **pas toujours** celui utilisé par l'IUT. L'app doit :
-   - afficher **« calculé » et « officiel » côte à côte** quand le relevé fournit l'officiel ;
-   - signaler les écarts supérieurs à 0,01 ;
-   - laisser modifier les coefficients.
+8. **Écarts observés** : le coefficient écrit dans un libellé n'est **pas toujours** celui qu'utilise l'IUT.
+   - Vérifié le 14/10/2026 avec `npm run verifier` sur trois vrais relevés (BUT1, BUT2 DACS, BUT3 DACS) :
+     - **BUT2** : aucun écart. Le pôle SAE de l'UE 3.6, autrefois en écart d'environ 0,9 point, tombe désormais juste (ses évaluations « UE 3.6 DACS – … » sont toutes lues). Le seul écart du S4 venait d'un stage noté « Coef ?? » : il disparaît dès que ce coefficient est saisi.
+     - **BUT1** : 8 ressources ou SAE ont une moyenne officielle calculée avec d'autres poids que ceux des libellés : moyenne simple au lieu des coefs affichés, interro « Coef 0.5 » comptée comme coef 1, évaluation non comptée, poids 1, 2, 3 au lieu de 1, 1, 1… Si l'on remplace la moyenne de ces 8 lignes par leur moyenne officielle, **tous** les pôles, UE et compétences tombent juste : les règles 2 à 7 sont donc bonnes. Ces écarts ne sont pas des bugs, et on ne peut pas les deviner.
+   - L'app doit :
+     - afficher **« calculé » et « officiel » côte à côte** quand le relevé fournit l'officiel ;
+     - signaler les écarts supérieurs à 0,01 ;
+     - laisser modifier les coefficients.
+   - Une évaluation **sans aucun coefficient** dans son libellé (`PPP : Note 1`) est traitée comme un `Coef ??` : on le demande.
 9. **Règles de validation** (seuils, compensation) : elles sont à reprendre du règlement des études de l'IUT. Tant qu'elles ne sont pas fournies, l'app n'affiche que les moyennes et un repère « ≥ 10 », **sans verdict** (pas de « admis » ni « ajourné »).
 
 ### Note à viser

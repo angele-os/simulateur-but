@@ -78,6 +78,15 @@ describe('relevé inventé sur deux pages (S3 et S4)', () => {
     assert.deepEqual(s4.ues[0].officiel, { moyenne: null, resultat: null, poleSae: null, poleRessources: null });
   });
 
+  test('pôle écrit en abrégé (« Pôle Res », « Pôle RES », vus au BUT1) : sa moyenne officielle est lue', () => {
+    for (const abrege of ['Pôle Res UE 3.1', 'Pôle RES UE 3.1']) {
+      const modifie = elements.map((e) => (e.texte === 'Pôle Ressource UE 3.1' ? { ...e, texte: abrege } : e));
+      const lu = importerNotes(modifie);
+      assert.equal(lu.semestres[0].ues[0].officiel.poleRessources, 11.9, abrege);
+      assert.deepEqual(lu.rapport.aVerifier, [], abrege);
+    }
+  });
+
   test('hiérarchie par retrait : chaque élément est sous l’UE où il apparaît, même après le saut de page', () => {
     // UE3.3 et ses ressources sont en page 2, la page 2 est décalée de 2,5 pt.
     assert.deepEqual(
