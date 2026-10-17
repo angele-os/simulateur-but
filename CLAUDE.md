@@ -48,7 +48,7 @@ La description précise de ces PDF et les règles de calcul vérifiées sont dan
 - pdf.js est utilisé avec `isEvalSupported: false`. On impose aussi des limites de taille et de nombre de pages.
 
 ## Interface
-- Reprends l'identité visuelle de mon portfolio, comme dans net-toolkit : violet et crème, polices Inter et Fraunces, effet verre. Reprends ses variables CSS.
+- Reprends l'identité visuelle de mon portfolio, comme dans net-toolkit : « ardoise et brume » (fond brume, encre, accent bleu pétrole), police Instrument Sans, effet verre. Reprends ses variables CSS.
 - Tout est en français.
 - L'app doit être utilisable sur téléphone, et accessible : labels, navigation au clavier, contraste suffisant.
 
