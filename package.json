@@ -21,6 +21,6 @@
   },
   "homepage": "https://github.com/angele-os/simulateur-but#readme",
   "dependencies": {
-    "pdfjs-dist": "^6.4.299"
+    "pdfjs-dist": "^6.5.438"
   }
 }
