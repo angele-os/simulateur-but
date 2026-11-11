@@ -7,11 +7,13 @@
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <meta name="theme-color" content="#EDF0F1">
+  <meta name="theme-color" content="#ECEDE8">
   <meta name="description" content="Simulateur de moyennes du BUT Informatique : saisis tes coefficients et tes notes, obtiens les moyennes des UE et des compétences, et la note à viser. Rien n'est envoyé ni enregistré.">
   <title>Simulateur BUT — moyennes et note à viser</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <!-- Polices du site, préchargées : Instrument Sans (interface) et Newsreader (titres). IBM Plex Mono se charge avec la feuille de style. -->
   <link rel="preload" href="fonts/instrument-sans-latin-standard-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/newsreader-latin-opsz-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/style.css">
   <script type="module" src="js/app.js"></script>
 </head>
@@ -19,18 +21,67 @@
   <a class="skip-link" href="#resultats">Aller aux résultats</a>
   <a class="skip-link" href="#saisie">Aller aux notes</a>
 
+  <!-- Dessins repris du portfolio (identité « le fil ») : la prise RJ45 et sa fiche, et un port vu de face.
+       Définis une seule fois ici, puis affichés avec <use href="#…">. Purement décoratifs. -->
+  <svg class="svg-defs" aria-hidden="true" focusable="false" width="0" height="0">
+    <symbol id="jack" viewBox="0 0 60 116">
+      <rect class="jack-house" x="3" y="2" width="54" height="46" rx="7"/>
+      <rect class="jack-hole" x="14" y="24" width="32" height="24" rx="2"/>
+      <circle class="jack-led-off" cx="14" cy="13" r="3.2"/>
+      <circle class="jack-led" cx="46" cy="13" r="3.2"/>
+      <rect class="jack-plug" x="17" y="29" width="26" height="46" rx="2.5"/>
+      <path class="jack-pins" d="M21 32v9M23.6 32v9M26.2 32v9M28.8 32v9M31.4 32v9M34 32v9M36.6 32v9M39.2 32v9"/>
+      <rect class="jack-tab" x="25" y="50" width="10" height="17" rx="1.5"/>
+      <path class="jack-boot" d="M17 75h26l-6.5 39h-13z"/>
+      <path class="jack-ribs" d="M19.5 84h21M21 93h18M22.5 102h15"/>
+    </symbol>
+    <symbol id="port" viewBox="0 0 44 36">
+      <rect class="port-house" x="1" y="1" width="42" height="34" rx="5"/>
+      <path class="port-hole" d="M10 28V13h6V8h12v5h6v15z"/>
+      <path class="port-pins" d="M14.5 28v-5M17.5 28v-5M20.5 28v-5M23.5 28v-5M26.5 28v-5M29.5 28v-5"/>
+      <circle class="port-led" cx="37" cy="6.5" r="2.3"/>
+    </symbol>
+  </svg>
+
   <header class="site-header">
     <div class="wrap site-header__inner">
-      <a class="brand" href="https://ange-bonkoski.fr">Ange Bonkoski</a>
-      <a class="header-link" href="https://github.com/angele-os/simulateur-but">Code source</a>
+      <a class="brand" href="https://ange-bonkoski.fr"><span class="brand__mono" aria-hidden="true">AB</span><span class="brand__nom">Ange Bonkoski</span></a>
+      <p class="site-header__outil"><span class="site-header__nom">simulateur-but</span> <span class="site-header__version">v1.0.0</span></p>
+      <a class="header-link" href="https://github.com/angele-os/simulateur-but">
+        <span>Code source</span>
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+      </a>
     </div>
   </header>
 
   <main id="contenu" class="wrap">
     <section class="hero" aria-labelledby="titre">
-      <p class="eyebrow">BUT INFORMATIQUE</p>
-      <h1 id="titre">Simulateur de moyennes</h1>
-      <p class="lead">Choisis ton année et ton parcours : les coefficients officiels sont déjà là. Importe ton relevé ou saisis tes notes : les moyennes des ressources, des pôles, des UE et des compétences se calculent en direct, avec la note à viser pour chaque évaluation. Tout reste sur ton appareil : rien n'est envoyé ni enregistré.</p>
+      <div class="hero__haut">
+        <p class="eyebrow">BUT INFORMATIQUE</p>
+        <!-- Chaque ligne du titre est dans son propre bloc : elles montent l'une après l'autre à l'ouverture (style.css). -->
+        <h1 id="titre"><span class="ligne-titre"><span class="ligne-titre__in">Simulateur</span></span> <span class="ligne-titre"><span class="ligne-titre__in">de moyennes</span></span></h1>
+        <!-- La prise réseau : voyant vert = tout reste sur l'appareil. -->
+        <div class="etat">
+          <svg class="jack" viewBox="0 0 60 116" aria-hidden="true" focusable="false"><use href="#jack"/></svg>
+          <div class="etat__texte">
+            <p class="etat__titre">Tout reste sur ton appareil</p>
+            <p class="etat__detail">rien n'est envoyé ni enregistré</p>
+          </div>
+        </div>
+        <!-- Le fil : un câble orange qui descend de la prise et souligne le titre (décoratif). -->
+        <div class="fil" aria-hidden="true"><span class="fil__bout"></span></div>
+      </div>
+      <div class="hero__bas">
+        <p class="hero__role">UE, compétences &amp; note à viser</p>
+        <div class="hero__texte">
+          <p class="lead">Choisis ton année et ton parcours : les coefficients officiels sont déjà là. Importe ton relevé ou saisis tes notes : les moyennes des ressources, des pôles, des UE et des compétences se calculent en direct, avec la note à viser pour chaque évaluation. Tout reste sur ton appareil : rien n'est envoyé ni enregistré.</p>
+          <ul class="hero__meta">
+            <li>v1.0.0</li>
+            <li>Licence MIT</li>
+            <li>JavaScript natif</li>
+          </ul>
+        </div>
+      </div>
     </section>
 
     <noscript>
@@ -39,7 +90,11 @@
 
     <!-- ===== 1. Choix de l'année et du parcours : crée les semestres avec les coefficients officiels ===== -->
     <section class="panel annee" id="annee" aria-labelledby="titre-annee">
-      <h2 class="annee__titre" id="titre-annee">Ton année</h2>
+      <div class="etape-tete">
+        <p class="etape" aria-hidden="true">01</p>
+        <h2 class="annee__titre" id="titre-annee">Ton année</h2>
+      </div>
+      <div class="etape-corps">
       <p class="hint">Les UE, les ressources, les SAE et leurs coefficients officiels sont créés pour les deux semestres de l'année, sans aucune note. Tu peux aussi tout saisir à la main, plus bas.</p>
       <!-- autocomplete="off" : le navigateur ne garde pas le choix après un rechargement. -->
       <form class="annee__form" id="form-annee" autocomplete="off" novalidate>
@@ -66,11 +121,16 @@
         </div>
       </form>
       <p class="annee__etat" id="annee-etat" role="status"></p>
+      </div>
     </section>
 
     <!-- ===== 2. Import facultatif des PDF de l'ENT (un import peut remplir plusieurs semestres) ===== -->
     <section class="panel import" id="import" aria-labelledby="titre-import">
-      <h2 class="import__titre" id="titre-import">Importer ton relevé <span class="import__facultatif">(facultatif)</span></h2>
+      <div class="etape-tete">
+        <p class="etape" aria-hidden="true">02</p>
+        <h2 class="import__titre" id="titre-import">Importer ton relevé <span class="import__facultatif">(facultatif)</span></h2>
+      </div>
+      <div class="etape-corps">
       <p class="hint">Ton relevé « Détail des notes », téléchargé sur l'ENT, pré-remplit tes notes : tout reste modifiable. Le PDF est lu sur ton appareil, rien n'est envoyé. Son en-tête (nom, n° de dossier…) n'est pas lu.</p>
       <div class="actions">
         <button class="btn btn--primary btn--sm" type="button" id="btn-import-releve" data-import="releve">
@@ -97,15 +157,18 @@
       <p class="hint import__etat" id="import-etat" role="status"></p>
       <!-- Rapport du dernier import, rempli par app.js (textContent seulement). -->
       <div class="rapport" id="rapport-import" role="region" aria-labelledby="titre-rapport" tabindex="-1" hidden></div>
+      </div>
     </section>
 
+    <p class="semestres__label" aria-hidden="true">Semestres — 06 ports</p>
+    <!-- Les onglets reprennent le panneau de brassage du portfolio : un port par semestre, voyant orange sur le semestre affiché. -->
     <div class="tabs semestres" role="tablist" aria-label="Semestre">
-      <button class="tab" type="button" role="tab" id="onglet-s1" data-semestre="1" aria-controls="semestre" aria-selected="true">S1</button>
-      <button class="tab" type="button" role="tab" id="onglet-s2" data-semestre="2" aria-controls="semestre" aria-selected="false" tabindex="-1">S2</button>
-      <button class="tab" type="button" role="tab" id="onglet-s3" data-semestre="3" aria-controls="semestre" aria-selected="false" tabindex="-1">S3</button>
-      <button class="tab" type="button" role="tab" id="onglet-s4" data-semestre="4" aria-controls="semestre" aria-selected="false" tabindex="-1">S4</button>
-      <button class="tab" type="button" role="tab" id="onglet-s5" data-semestre="5" aria-controls="semestre" aria-selected="false" tabindex="-1">S5</button>
-      <button class="tab" type="button" role="tab" id="onglet-s6" data-semestre="6" aria-controls="semestre" aria-selected="false" tabindex="-1">S6</button>
+      <button class="tab" type="button" role="tab" id="onglet-s1" data-semestre="1" aria-controls="semestre" aria-selected="true"><svg class="tab__port" viewBox="0 0 44 36" aria-hidden="true" focusable="false"><use href="#port"/></svg><span class="tab__nom">S1</span></button>
+      <button class="tab" type="button" role="tab" id="onglet-s2" data-semestre="2" aria-controls="semestre" aria-selected="false" tabindex="-1"><svg class="tab__port" viewBox="0 0 44 36" aria-hidden="true" focusable="false"><use href="#port"/></svg><span class="tab__nom">S2</span></button>
+      <button class="tab" type="button" role="tab" id="onglet-s3" data-semestre="3" aria-controls="semestre" aria-selected="false" tabindex="-1"><svg class="tab__port" viewBox="0 0 44 36" aria-hidden="true" focusable="false"><use href="#port"/></svg><span class="tab__nom">S3</span></button>
+      <button class="tab" type="button" role="tab" id="onglet-s4" data-semestre="4" aria-controls="semestre" aria-selected="false" tabindex="-1"><svg class="tab__port" viewBox="0 0 44 36" aria-hidden="true" focusable="false"><use href="#port"/></svg><span class="tab__nom">S4</span></button>
+      <button class="tab" type="button" role="tab" id="onglet-s5" data-semestre="5" aria-controls="semestre" aria-selected="false" tabindex="-1"><svg class="tab__port" viewBox="0 0 44 36" aria-hidden="true" focusable="false"><use href="#port"/></svg><span class="tab__nom">S5</span></button>
+      <button class="tab" type="button" role="tab" id="onglet-s6" data-semestre="6" aria-controls="semestre" aria-selected="false" tabindex="-1"><svg class="tab__port" viewBox="0 0 44 36" aria-hidden="true" focusable="false"><use href="#port"/></svg><span class="tab__nom">S6</span></button>
     </div>
 
     <!-- ===== Le semestre choisi : vue propre, modifiable bloc par bloc (bouton engrenage) ===== -->
@@ -188,7 +251,7 @@
   <footer class="site-footer">
     <div class="wrap site-footer__inner">
       <p>simulateur-but — licence MIT</p>
-      <p>
+      <p class="site-footer__liens">
         <a href="https://ange-bonkoski.fr">Portfolio</a>
         <span aria-hidden="true">·</span>
         <a href="https://github.com/angele-os/simulateur-but">Dépôt GitHub</a>

@@ -1,258 +1,1250 @@
-/* simulateur-but — styles
-   Identité visuelle reprise du portfolio (ange-bonkoski.fr) et de net-toolkit : « ardoise et brume »,
-   fond gris brume, encre presque noire, un seul accent bleu pétrole, panneaux en verre.
-   Organisation : polices → variables → base → mise en page → composants → saisie → résultats
-   → responsive → accessibilité. */
+/* ==========================================================================
+   simulateur-but — styles
+   Identité « le fil », reprise du portfolio (ange-bonkoski.fr) et partagée avec net-toolkit :
+   papier gris chaud, encre presque noire, grands titres serif, un câble orange comme seul accent.
+   Ici c'est une application de saisie : le fil part de la prise du titre, les six semestres
+   sont les ports d'un panneau de brassage, les moyennes s'affichent en grands chiffres serif,
+   et le bilan des compétences de l'année est le seul panneau sombre de la page.
 
-/* ========== 1. Polices auto-hébergées (Instrument Sans, licence SIL OFL 1.1, voir fonts/README.md) ========== */
+   SOMMAIRE (Ctrl+F sur le numéro pour sauter à une partie)
+    1. Polices            7. Étapes (année, import)   13. Notes (ressources, SAE)
+    2. Variables          8. Semestres (ports)        14. Éditeurs
+    3. Base               9. Formulaires              15. Pied de page, page 404
+    4. En-tête           10. Boutons                  16. Apparitions
+    5. Hero, prise, fil  11. Feuilles et blocs        17. Responsive
+    6. Dessins SVG       12. Résultats                18. Préférences d'accessibilité
+   ========================================================================== */
+
+/* 1. POLICES ---------------------------------------------------------------
+   Toutes servies par le site (licence SIL OFL 1.1, voir fonts/README.md) : la CSP
+   « font-src 'self' » interdit de toute façon les polices venues d'ailleurs.
+   - Newsreader : titres et grands chiffres (fichier variable), plus une italique.
+   - Instrument Sans : interface et textes.
+   - IBM Plex Mono : uniquement les données (notes, coefficients, codes des UE et des ressources). */
 @font-face {
-  font-family: 'Instrument Sans';
-  src: url('../fonts/instrument-sans-latin-standard-normal.woff2') format('woff2');
-  font-weight: 400 700;      /* police variable : graisses 400 à 700 dans un seul fichier */
-  font-stretch: 75% 100%;    /* et largeurs 75 % à 100 % : les titres sont légèrement condensés */
+  font-family: 'Newsreader';
+  src: url('../fonts/newsreader-latin-opsz-normal.woff2') format('woff2');
+  font-weight: 200 800;      /* police variable : toutes les graisses dans un seul fichier */
   font-style: normal;
   font-display: swap;        /* affiche le texte tout de suite avec une police de secours */
 }
 
-/* ========== 2. Variables (identiques à net-toolkit) ========== */
-:root {
-  /* Couleurs du portfolio (contrastes mesurés sur le fond --bg) */
-  --white: #fff;
-  --bg: #EDF0F1;            /* brume */
-  --bg-deep: #E4E9EB;
-
-  --accent: #1D5A66;        /* bleu pétrole : 6,8:1 (blanc sur pétrole : 7,8:1) */
-  --accent-deep: #143F48;
-  --accent-soft: rgba(29, 90, 102, .10);
-  --accent-glow: rgba(29, 90, 102, .28);
-
-  --text: #14181D;          /* encre : 15,6:1 */
-  --text-dim: #46505A;      /* texte secondaire : 7,2:1 */
-  --text-faint: #59636D;    /* texte discret : 5,3:1 */
-
-  --line: rgba(20, 24, 29, .12);
-  --line-soft: rgba(20, 24, 29, .08);
-  --line-strong: rgba(20, 24, 29, .2);
-
-  /* Rouge des erreurs : couleur d'alerte, volontairement distincte de l'accent */
-  --error: #B42318;
-  --error-bg: rgba(180, 35, 24, .07);
-  --error-line: rgba(180, 35, 24, .3);
-
-  /* Ambre des avertissements (« rien n'est enregistré », coef à compléter, écarts) :
-     sable comme les halos du fond, distinct de l'accent et du rouge */
-  --warn-bg: #F6EBD6;
-  --warn-line: #C9963F;
-  --warn-strong: #A8701A;   /* liseré et bordure appuyée */
-  --warn-text: #6B4410;     /* texte sur --warn-bg */
-  --warn-title: #7A4E12;
-
-  --r-lg: 26px;
-  --r-md: 18px;
-  --r-sm: 12px;
-  --ease: cubic-bezier(.16, 1, .3, 1);
-
-  --sans: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --display: var(--sans);   /* titres : même police, plus condensée (font-stretch) */
-  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Menlo', 'Consolas', monospace;
-
-  /* Marge latérale de la page */
-  --gutter: clamp(1rem, 4vw, 3rem);
+@font-face {
+  font-family: 'Newsreader';
+  src: url('../fonts/newsreader-latin-wght-italic.woff2') format('woff2');
+  font-weight: 200 800;
+  font-style: italic;
+  font-display: swap;
 }
 
-/* ========== 3. Base ========== */
+@font-face {
+  font-family: 'Instrument Sans';
+  src: url('../fonts/instrument-sans-latin-standard-normal.woff2') format('woff2');
+  font-weight: 400 700;
+  font-stretch: 75% 100%;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('../fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 2. VARIABLES ------------------------------------------------------------- */
+:root {
+  /* Couleurs du portfolio (contrastes mesurés sur --paper, puis sur --sheet) */
+  --paper: #ECEDE8;          /* papier gris : le fond de la page */
+  --sheet: #FAFAF7;          /* feuille posée sur le papier : la zone de travail */
+  --ink: #15181B;            /* encre : 15,1:1 et 17,0:1 */
+  --ink-2: #42484E;          /* texte secondaire : 7,9:1 et 8,9:1 */
+  --ink-3: #5C6268;          /* texte discret : 5,2:1 et 5,9:1 */
+  --wire: #EE4F1A;           /* le câble : jamais utilisé pour du texte */
+  --wire-deep: #A5360B;      /* le même orange, assombri pour le texte : 5,6:1 et 6,3:1 */
+  --led: #128A49;            /* voyant sur fond clair */
+  --led-bright: #43E08A;     /* voyant sur fond sombre */
+  --ok: #0E7A40;             /* « copié » : vert assombri pour le texte, 5,2:1 sur --sheet */
+  --error: #A8201A;          /* erreurs : rouge distinct de l'orange du câble, 7,0:1 sur --sheet */
+  --line: rgba(21, 24, 27, .2);
+  --line-soft: rgba(21, 24, 27, .11);
+  --field-line: rgba(21, 24, 27, .56);   /* bord des champs : 4,1:1, un champ doit se voir (WCAG 1.4.11) */
+  --paper-soft: rgba(236, 237, 232, .74);  /* texte discret sur le panneau sombre : 8,7:1 */
+  --paper-line: rgba(236, 237, 232, .22);
+
+  /* Profondeur : une ombre courte et nette + une ombre longue et diffuse */
+  --shadow-sheet: 0 1px 1px rgba(21, 24, 27, .06), 0 10px 20px -10px rgba(21, 24, 27, .2), 0 36px 60px -34px rgba(21, 24, 27, .34);
+
+  --r-sm: 6px;
+  --r-md: 12px;
+  --r-lg: 26px;
+
+  /* Mise en page */
+  --wrap: 1360px;
+  --gutter: clamp(1rem, 6.4vw, 4.5rem);
+  --nav-h: 4.25rem;
+  --sheet-pad: clamp(1.1rem, 3.4vw, 2.5rem);
+  --etat-w: 19.5rem;          /* largeur de la colonne de la prise, à droite du titre */
+  --jack-w: 44px;             /* largeur de la prise : le câble est centré dessus */
+
+  --ease: cubic-bezier(.16, 1, .3, 1);
+
+  --serif: 'Newsreader', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --sans: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+/* 3. BASE ------------------------------------------------------------------ */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 html {
+  scrollbar-color: var(--ink-3) transparent;
+  scroll-padding-top: calc(var(--nav-h) + 1.25rem);
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 
 body {
-  margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  /* Le grain de papier est un petit fichier SVG : la CSP interdit les images « data: » */
+  background: var(--paper) url('grain.svg');
+  color: var(--ink);
   font-family: var(--sans);
-  line-height: 1.55;
-  color: var(--text);
-  /* Fond brume + halos très flous (pétrole, bleu, sable), comme le portfolio, sans animation */
-  background-color: var(--bg);
-  background-image:
-    radial-gradient(ellipse 60rem 40rem at 0% -10%, rgba(29, 90, 102, .22), transparent 62%),
-    radial-gradient(ellipse 46rem 34rem at 100% 0%, rgba(84, 112, 150, .16), transparent 60%),
-    radial-gradient(ellipse 52rem 36rem at 40% 75%, rgba(205, 190, 166, .30), transparent 65%),
-    radial-gradient(ellipse 40rem 30rem at 100% 95%, rgba(110, 170, 180, .20), transparent 60%);
-  background-repeat: no-repeat;
-  background-attachment: fixed;
+  font-size: 1rem;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-wrap: break-word;
+}
+
+main {
+  flex: 1;
+}
+
+/* L'attribut hidden cache toujours l'élément, même si une règle plus bas lui donne un display */
+[hidden] { display: none !important; }
+
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: none;
+  border: 0;
+  cursor: pointer;
 }
 
 h1,
 h2,
 h3 {
-  margin: 0;
-  font-family: var(--display);
-  font-weight: 650;
-  font-stretch: 82%;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-  color: var(--text);
+  color: var(--ink);
+  font-weight: 400;
+  text-wrap: balance;
+}
+
+p,
+li {
+  text-wrap: pretty;
 }
 
 p {
-  margin: 0;
-  color: var(--text-dim);
+  color: var(--ink-2);
 }
 
-a {
-  color: var(--accent);
-  text-underline-offset: .2em;
+strong {
+  font-weight: 650;
+  color: var(--ink);
 }
 
-a:hover {
-  color: var(--accent-deep);
+code {
+  font-family: var(--mono);
+  font-size: .92em;
 }
 
 ::selection {
-  background: var(--accent-soft);
+  background: var(--ink);
+  color: var(--paper);
 }
 
-/* Focus clavier bien visible sur tous les éléments interactifs */
+/* Indicateur de focus : toujours visible au clavier, orange foncé (5,6:1 sur le papier) */
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--wire-deep);
   outline-offset: 3px;
+  border-radius: 4px;
 }
 
-/* L'attribut hidden cache toujours l'élément, même avec un display: grid ou flex. */
-[hidden] {
-  display: none !important;
-}
-
-/* Masqué à l'écran mais lu par les lecteurs d'écran */
 .sr-only {
   position: absolute;
   width: 1px;
   height: 1px;
-  padding: 0;
   margin: -1px;
+  padding: 0;
   overflow: hidden;
-  clip: rect(0 0 0 0);
+  clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
 }
 
-/* Liens d'évitement : invisibles tant qu'ils n'ont pas le focus clavier */
+.svg-defs {
+  position: absolute;
+}
+
 .skip-link {
   position: absolute;
   left: 1rem;
-  top: -4rem;
-  z-index: 10;
-  padding: .7rem 1.2rem;
+  top: -5rem;
+  z-index: 6000;
+  padding: .8rem 1.3rem;
   border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--ink);
+  color: var(--paper);
   font-weight: 600;
   text-decoration: none;
+  transition: top .25s var(--ease);
 }
 
 .skip-link:focus {
   top: 1rem;
-  color: #fff;
+  outline-color: var(--wire);
 }
 
-/* ========== 4. Mise en page ========== */
+/* Données techniques : toujours en IBM Plex Mono, chiffres de même largeur */
+.mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex-shrink: 0;
+}
+
 .wrap {
-  width: min(1180px, 100% - 2 * var(--gutter));
-  margin-inline: auto;
+  width: 100%;
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+/* 4. EN-TÊTE ----------------------------------------------------------------
+   Même barre que le portfolio : monogramme cerclé, nom, puis le lien vers le code. */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 5000;
+  background: rgba(236, 237, 232, .9);
+  border-bottom: 1px solid var(--line-soft);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 
 .site-header__inner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-block: 1rem;
+  gap: .75rem 1.25rem;
+  height: var(--nav-h);
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
+  gap: .7rem;
   min-height: 44px;
-  font-weight: 800;
-  color: var(--text);
+  font-weight: 600;
+  font-size: .98rem;
   text-decoration: none;
+  white-space: nowrap;
+}
+
+.brand__mono {
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  padding-top: .08em;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: .95rem;
+  line-height: 1;
+  transition: background-color .25s, color .25s;
+}
+
+/* Nom de l'outil et version : une information secondaire, en mono, derrière un filet */
+.site-header__outil {
+  display: none;
+  align-items: baseline;
+  gap: .5rem;
+  padding-left: 1.25rem;
+  border-left: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: .84rem;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.site-header__nom {
+  color: var(--ink);
+}
+
+.site-header__version {
+  color: var(--ink-3);
 }
 
 .header-link {
   display: inline-flex;
   align-items: center;
+  gap: .45rem;
   min-height: 44px;
-  font-size: .92rem;
-  font-weight: 500;
-  color: var(--text-dim);
+  margin-left: auto;
+  padding: 0 1.05rem 0 1.15rem;
+  border: 1.5px solid var(--ink);
+  border-radius: 999px;
+  font-size: .9rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color .25s, color .25s;
 }
 
+.header-link .icon {
+  width: .95rem;
+  height: .95rem;
+  transition: transform .35s var(--ease);
+}
+
+/* 5. HERO, PRISE, FIL -------------------------------------------------------
+   Le titre à gauche, la prise réseau à droite. Le câble descend de la prise,
+   tourne, et souligne le titre jusqu'à la marge : c'est la signature du portfolio. */
 .hero {
-  padding-block: clamp(1.5rem, 5vw, 3.25rem) clamp(1.25rem, 3vw, 2rem);
+  padding: clamp(2.25rem, 6vw, 4.75rem) 0 clamp(2.5rem, 5vw, 4rem);
+}
+
+.hero__haut {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  /* Petits écrans : le câble longe le bord droit, le titre lui laisse la place */
+  padding-right: calc(var(--jack-w) + .85rem);
 }
 
 .eyebrow {
-  margin-bottom: .9rem;
   font-family: var(--mono);
-  font-size: .78rem;
-  letter-spacing: .04em;
-  color: var(--text-dim);
+  font-size: .82rem;
+  line-height: 1.4;
+  color: var(--ink-3);
 }
 
 .hero h1 {
-  font-size: clamp(2rem, 5.5vw, 3.4rem);
-  line-height: 1.1;
+  margin: .9rem 0 0 -.03em;
+  font-family: var(--serif);
+  font-weight: 420;
+  font-size: clamp(2.5rem, 13vw, 7.6rem);
+  line-height: .9;
+  letter-spacing: -.045em;
+}
+
+/* Chaque ligne du titre monte depuis un bloc qui la masque (voir « Apparitions ») */
+.ligne-titre {
+  display: block;
+  overflow: hidden;
+  padding: .09em .04em .16em;
+  margin: 0 -.04em -.16em;
+}
+
+.ligne-titre__in {
+  display: block;
+}
+
+/* La prise et son état : au-dessus du titre sur petit écran (texte à gauche, prise à droite) */
+.etat {
+  order: -1;
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin: 0 calc((var(--jack-w) + .85rem) * -1) 1.1rem 0;
+}
+
+.jack {
+  position: relative;
+  z-index: 1;
+  width: var(--jack-w);
+  height: auto;
+  flex-shrink: 0;
+  overflow: visible;
+  --jack-led: var(--led);
+}
+
+.etat__texte {
+  padding-top: .2rem;
+}
+
+.etat__titre {
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ink);
+}
+
+.etat__detail {
+  margin-top: .3rem;
+  font-family: var(--mono);
+  font-size: .82rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+/* Le fil : deux bords d'une boîte (droite et bas) et un coin arrondi font un câble en « L ».
+   Il part sous la prise, descend, tourne et file vers la gauche. */
+.fil {
+  position: absolute;
+  z-index: 0;
+  /* 85 % de la hauteur de la prise : le câble sort de sa gaine orange, sans trou */
+  top: calc(var(--jack-w) * 1.85);
+  /* Centré sous la prise : (largeur de la prise − épaisseur du câble) ÷ 2 */
+  right: calc((var(--jack-w) - 5px) / 2);
+  bottom: -1.5rem;
+  left: -.35rem;
+  border: solid var(--wire);
+  border-width: 0 5px 5px 0;
+  border-bottom-right-radius: 30px;
+  filter: drop-shadow(1.5px 3px 0 rgba(21, 24, 27, .16));
+  pointer-events: none;
+}
+
+/* Le bout du fil : un point et son halo, posés sur l'extrémité gauche */
+.fil__bout,
+.fil__bout::after {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--wire);
+}
+
+.fil__bout {
+  left: -6px;
+  bottom: -9px;
+  width: 13px;
+  height: 13px;
+  box-shadow: 0 0 0 2.5px var(--paper);
+}
+
+.fil__bout::after {
+  content: '';
+  inset: -6px;
+  opacity: .2;
+  animation: halo 2.2s ease-in-out infinite;
+}
+
+@keyframes halo {
+  0%, 100% { transform: scale(.7); opacity: .26; }
+  50% { transform: scale(1.15); opacity: .1; }
+}
+
+.hero__bas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem 3rem;
+  margin-top: clamp(3rem, 6vw, 4.25rem);
+}
+
+.hero__role {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(1.6rem, 3.3vw, 2.6rem);
+  line-height: 1.08;
+  letter-spacing: -.02em;
+  color: var(--ink);
 }
 
 .lead {
-  margin-top: 1rem;
-  max-width: 62ch;
-  font-size: 1.05rem;
+  max-width: 54ch;
+  font-size: clamp(1.03rem, 1.3vw, 1.16rem);
 }
 
-/* Panneau en effet verre */
-.panel {
-  padding: clamp(1rem, 3.5vw, 2rem);
-  background: linear-gradient(180deg, rgba(255, 255, 255, .58), rgba(255, 255, 255, .34));
-  border: 1px solid rgba(255, 255, 255, .6);
-  border-radius: var(--r-lg);
-  -webkit-backdrop-filter: blur(14px) saturate(170%);
-  backdrop-filter: blur(14px) saturate(170%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, .95),
-    inset 0 -1px 0 rgba(20, 24, 29, .04),
-    0 1px 1px rgba(20, 24, 29, .04),
-    0 14px 34px -18px rgba(20, 24, 29, .26),
-    0 44px 90px -48px rgba(29, 90, 102, .32);
-}
-
-/* Page 404 : panneau court avec un bouton de retour */
-.panel--court {
-  max-width: 40rem;
-}
-
-.panel__action {
+/* Informations secondaires : version, licence… en mono, séparées par un point médian */
+.hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem 1.25rem;
   margin-top: 1.25rem;
+  font-family: var(--mono);
+  font-size: .82rem;
+  color: var(--ink-3);
 }
 
-/* Saisie puis résultats ; côte à côte sur grand écran (voir Responsive) */
+.hero__meta li {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+/* Une pastille de câble devant chaque information (lisible même quand la liste passe à la ligne) */
+.hero__meta li::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--wire);
+}
+
+/* 6. DESSINS SVG (prise et port, définis une fois dans index.html) ----------
+   Les couleurs passent par des variables : un même dessin peut ainsi changer
+   d'état (voyant allumé, survol) ou de fond (panneau sombre). */
+.jack-house { fill: var(--sheet); stroke: var(--ink); stroke-width: 1.6; }
+.jack-hole { fill: var(--ink); opacity: .14; }
+.jack-led-off { fill: transparent; stroke: var(--ink); stroke-width: 1.2; stroke-opacity: .45; }
+.jack-led { fill: var(--jack-led); }
+.jack-plug { fill: var(--paper); stroke: var(--ink); stroke-width: 1.5; }
+.jack-pins { fill: none; stroke: #B98A1F; stroke-width: 1.1; stroke-linecap: round; }
+.jack-tab { fill: none; stroke: var(--ink); stroke-width: 1.2; opacity: .55; }
+.jack-boot { fill: var(--wire); stroke: var(--ink); stroke-width: 1.5; stroke-linejoin: round; }
+.jack-ribs { fill: none; stroke: var(--ink); stroke-width: 1.1; stroke-linecap: round; opacity: .4; }
+
+/* Le voyant de lien respire doucement (couleur déclarée pour pouvoir être animée) */
+@property --jack-led {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #128A49;
+}
+
+.jack {
+  animation: led 2.6s ease-in-out infinite;
+}
+
+@keyframes led {
+  0%, 100% { --jack-led: #128A49; }
+  50% { --jack-led: #1FC46B; }
+}
+
+.port-house { fill: var(--port-house, var(--sheet)); stroke: var(--port-stroke, var(--ink)); stroke-width: 1.5; }
+.port-hole { fill: var(--port-fill, var(--ink)); transition: fill .25s; }
+.port-pins { fill: none; stroke: #C99A2A; stroke-width: 1.3; stroke-linecap: round; }
+.port-led { fill: var(--port-led, rgba(21, 24, 27, .14)); transition: fill .4s; }
+
+/* 7. ÉTAPES : TON ANNÉE, IMPORT ---------------------------------------------
+   Deux étapes numérotées, posées à plat sur le papier sous un filet à l'encre :
+   le numéro et le titre à gauche, le contenu à droite (comme les domaines du portfolio). */
+.annee,
+.import {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem 2.5rem;
+  padding: 1rem 0 clamp(2rem, 4vw, 3rem);
+  border-top: 1px solid var(--ink);
+}
+
+.etape {
+  font-family: var(--mono);
+  font-size: .82rem;
+  line-height: 1;
+  color: var(--ink-3);
+}
+
+.annee__titre,
+.import__titre {
+  margin-top: .7rem;
+  font-family: var(--serif);
+  font-size: clamp(1.9rem, 3.6vw, 2.7rem);
+  line-height: 1;
+  letter-spacing: -.03em;
+}
+
+.import__facultatif {
+  display: block;
+  margin-top: .45rem;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.1rem;
+  letter-spacing: 0;
+  color: var(--wire-deep);
+}
+
+.etape-corps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  min-width: 0;
+}
+
+.etape-corps > .hint {
+  max-width: 68ch;
+  margin-top: 0;
+  font-size: .98rem;
+  color: var(--ink-2);
+}
+
+.annee__form {
+  display: flex;
+  flex-wrap: wrap;
+  /* Alignés par le haut : un message d'erreur sous un groupe ne décale pas l'autre. */
+  align-items: flex-start;
+  gap: 1.1rem 2rem;
+}
+
+/* Le bouton « Créer mes semestres » a sa propre ligne, sous les choix. */
+.annee__envoi {
+  flex-basis: 100%;
+}
+
+/* Un groupe de choix (Année, Parcours) : légende au-dessus des boutons */
+.choix {
+  display: grid;
+  gap: .35rem;
+  min-width: 0;
+  border: 0;
+}
+
+.choix legend {
+  margin-bottom: .5rem;
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Boutons radio présentés comme le sélecteur de langue du portfolio : une pilule cerclée,
+   le choix retenu passe à l'encre. Le vrai bouton radio reste dans la page : clavier
+   (flèches) et lecteurs d'écran fonctionnent comme pour tout groupe de boutons radio. */
+.segments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--field-line);
+  border-radius: 999px;
+}
+
+.segment {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 4.25rem;
+  min-height: 2.75rem;
+  padding: .4rem 1.1rem;
+  border-radius: 999px;
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background-color .25s, color .25s;
+}
+
+/* Le rond du bouton radio est invisible, mais toujours là (et cliquable). */
+.segment input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.segment:has(input:checked) {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* Le focus clavier se voit sur la pilule (le rond, lui, est invisible). */
+.segment:has(input:focus-visible) {
+  outline: 2px solid var(--wire-deep);
+  outline-offset: 3px;
+}
+
+/* Choix manquant : la pilule entière est bordée de rouge (message en dessous). */
+.choix--erreur .segments {
+  border-color: var(--error);
+  box-shadow: 0 0 0 1px var(--error);
+}
+
+/* Confirmation (« S5 et S6 créés… ») : précédée d'un voyant vert */
+.annee__etat {
+  display: flex;
+  align-items: baseline;
+  gap: .65rem;
+  max-width: 68ch;
+  color: var(--ink);
+}
+
+.annee__etat:empty,
+.import__etat:empty {
+  display: none;
+}
+
+.annee__etat::before {
+  content: '';
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--led);
+  transform: translateY(-.1em);
+}
+
+.import__etat {
+  font-family: var(--mono);
+  color: var(--ink);
+}
+
+/* Menu « Avancé » : replié par défaut. Un + qui devient − (comme « Voir tous les détails » du portfolio). */
+.avance summary,
+.rapport__ecarte summary {
+  display: inline-flex;
+  align-items: center;
+  gap: .65rem;
+  min-height: 2.75rem;
+  font-size: .93rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  list-style: none;
+}
+
+.avance summary::-webkit-details-marker,
+.rapport__ecarte summary::-webkit-details-marker {
+  display: none;
+}
+
+.avance summary::before,
+.rapport__ecarte summary::before {
+  content: '';
+  flex-shrink: 0;
+  width: .8rem;
+  height: .8rem;
+  background:
+    linear-gradient(currentColor, currentColor) center / 100% 1.5px no-repeat,
+    linear-gradient(currentColor, currentColor) center / 1.5px 100% no-repeat;
+  transition: transform .4s var(--ease), background-size .4s var(--ease);
+}
+
+.avance[open] summary::before,
+.rapport__ecarte[open] summary::before {
+  transform: rotate(180deg);
+  background-size: 100% 1.5px, 1.5px 0;
+}
+
+.avance__corps {
+  display: grid;
+  gap: .9rem;
+  max-width: 68ch;
+  padding: .35rem 0 .25rem 1.45rem;
+}
+
+/* Rapport du dernier import : une feuille, chaque partie repérée par un liseré
+   (vert = compris, câble = à compléter, encre = à vérifier) */
+.rapport {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.1rem;
+  max-width: 62rem;
+  padding: clamp(1.1rem, 2.5vw, 1.75rem);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  background: var(--sheet);
+  box-shadow: var(--shadow-sheet);
+}
+
+.rapport:focus-visible {
+  border-radius: var(--r-md);
+}
+
+.rapport__titre {
+  font-family: var(--serif);
+  font-size: clamp(1.5rem, 2.6vw, 1.9rem);
+  line-height: 1.1;
+  letter-spacing: -.02em;
+}
+
+.rapport > p {
+  color: var(--ink);
+}
+
+.rapport__partie {
+  display: grid;
+  gap: .45rem;
+  padding-left: .95rem;
+  border-left: 3px solid var(--ink);
+}
+
+.rapport__partie--compris {
+  border-left-color: var(--led);
+}
+
+.rapport__partie--completer {
+  border-left-color: var(--wire);
+}
+
+.rapport h4 {
+  font-size: .98rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.rapport ul {
+  display: grid;
+  gap: .35rem;
+  font-size: .94rem;
+  color: var(--ink-2);
+}
+
+/* Listes : un tiret en guise de puce. Les longs codes passent à la ligne au lieu de déborder. */
+.rapport li {
+  position: relative;
+  padding-left: 1.2rem;
+  overflow-wrap: anywhere;
+}
+
+.rapport li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: .78em;
+  width: .65rem;
+  height: 1.5px;
+  background: var(--ink-3);
+}
+
+.rapport a {
+  display: inline-block;
+  padding: .3rem 0;
+  font-weight: 600;
+  color: var(--wire-deep);
+  text-underline-offset: .22em;
+}
+
+.rapport > .btn {
+  justify-self: start;
+}
+
+/* 8. SEMESTRES : LES PORTS DU PANNEAU DE BRASSAGE ---------------------------
+   Six ports, six semestres (comme le sommaire du portfolio). Le voyant du semestre affiché
+   passe à l'orange et un tronçon de câble glisse sous lui. Tout est en CSS :
+   app.js ne change que aria-selected. */
+.semestres__label {
+  padding-top: .85rem;
+  border-top: 1px solid var(--ink);
+  font-family: var(--mono);
+  font-size: .8rem;
+  color: var(--ink-3);
+}
+
+.tabs {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin-top: .35rem;
+  border-bottom: 1px solid var(--line);
+}
+
+/* Le repère : un tronçon de câble sous le port ouvert. translateX(100 %) = une colonne plus loin. */
+.tabs::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: calc(100% / 6);
+  height: 3px;
+  border-radius: 3px;
+  background: var(--wire);
+  pointer-events: none;
+  transition: transform .5s var(--ease);
+}
+
+.tabs:has(#onglet-s2[aria-selected="true"])::after { transform: translateX(100%); }
+.tabs:has(#onglet-s3[aria-selected="true"])::after { transform: translateX(200%); }
+.tabs:has(#onglet-s4[aria-selected="true"])::after { transform: translateX(300%); }
+.tabs:has(#onglet-s5[aria-selected="true"])::after { transform: translateX(400%); }
+.tabs:has(#onglet-s6[aria-selected="true"])::after { transform: translateX(500%); }
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .3rem;
+  min-height: 4.5rem;
+  padding: .7rem .2rem .8rem;
+  color: var(--ink-2);
+  transition: color .2s;
+}
+
+.tab + .tab {
+  border-left: 1px solid var(--line-soft);
+}
+
+.tab__port {
+  width: 28px;
+  height: auto;
+  overflow: visible;
+  transition: transform .35s var(--ease);
+}
+
+.tab__nom {
+  font-family: var(--serif);
+  font-size: 1.3rem;
+  line-height: 1;
+  letter-spacing: -.02em;
+}
+
+/* Port ouvert : voyant orange, texte à l'encre */
+.tab[aria-selected="true"] {
+  color: var(--ink);
+  --port-led: var(--wire);
+}
+
+.tab:active {
+  --port-fill: var(--wire);
+}
+
+.tab:focus-visible {
+  outline-offset: -3px;
+}
+
+/* Navigateur sans :has() : pas de repère glissant, le port ouvert porte lui-même le trait */
+@supports not selector(:has(*)) {
+  .tabs::after {
+    display: none;
+  }
+
+  .tab[aria-selected="true"] {
+    box-shadow: inset 0 -3px 0 var(--wire);
+  }
+}
+
+/* 9. FORMULAIRES ------------------------------------------------------------ */
+.field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.field--court {
+  max-width: 16rem;
+}
+
+.field > label,
+.groupe legend {
+  font-size: .95rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.hint {
+  margin-top: .2rem;
+  font-size: .88rem;
+  line-height: 1.45;
+  color: var(--ink-3);
+}
+
+.hint strong {
+  color: var(--ink-2);
+}
+
+.input {
+  width: 100%;
+  min-height: 3rem;
+  margin-top: .45rem;
+  padding: .6rem .9rem;
+  border: 1px solid var(--field-line);
+  border-radius: var(--r-sm);
+  background: #fff;
+  /* 1rem au minimum : en dessous, iOS zoome dans le champ */
+  font-size: 1rem;
+  line-height: 1.4;
+  color: var(--ink);
+  transition: border-color .2s, box-shadow .2s;
+}
+
+.input::placeholder {
+  color: var(--ink-3);
+  opacity: 1;
+}
+
+/* Notes et coefficients : en mono, chiffres de même largeur */
+.input--num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+select.input {
+  cursor: pointer;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--wire-deep);
+  outline-offset: 2px;
+  border-color: var(--ink);
+  border-radius: var(--r-sm);
+}
+
+/* Champ refusé : bord rouge épaissi (box-shadow) + message juste dessous */
+.input[aria-invalid="true"] {
+  border-color: var(--error);
+  box-shadow: 0 0 0 1px var(--error);
+}
+
+.field-error {
+  display: flex;
+  align-items: flex-start;
+  gap: .45rem;
+  margin-top: .45rem;
+  font-size: .88rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--error);
+}
+
+/* Pas d'erreur = aucune place prise */
+.field-error:empty {
+  display: none;
+}
+
+/* Un petit « ! » cerclé : l'erreur ne repose pas que sur la couleur */
+.field-error::before {
+  content: '!';
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-top: .1rem;
+  border-radius: 50%;
+  background: var(--error);
+  color: var(--sheet);
+  font-size: .72rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* 10. BOUTONS --------------------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .6rem;
+  min-height: 3.1rem;
+  padding: .7rem 1.5rem;
+  border: 1.5px solid var(--ink);
+  border-radius: 999px;
+  font-size: .97rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  transition: background-color .25s, color .25s, border-color .25s, transform .15s;
+}
+
+.btn:active {
+  transform: translateY(1px) scale(.985);
+}
+
+.btn--primary {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.btn--secondary {
+  color: var(--ink);
+}
+
+/* Suppression d'un bloc entier : en rouge, sans fond */
+.btn--danger {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.btn--sm {
+  min-height: 2.75rem;
+  padding: .5rem 1.15rem;
+  font-size: .9rem;
+}
+
+.btn:disabled {
+  border-style: dashed;
+  border-color: var(--field-line);
+  background: none;
+  color: var(--ink-3);
+  cursor: not-allowed;
+}
+
+/* Bouton rond (retirer une évaluation) : 44 px, la taille d'un doigt */
+.btn-icon {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--field-line);
+  border-radius: 50%;
+  color: var(--ink);
+  transition: background-color .25s, color .25s, border-color .25s, transform .15s;
+}
+
+.btn-icon:active {
+  transform: scale(.94);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+/* Le bouton engrenage « Modifier » : transparent par défaut, mais TOUJOURS dans la page
+   (pas de display: none) : la touche Tab l'atteint, et il apparaît alors. */
+.engrenage {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2.75rem; /* cible tactile de 44 × 44 px */
+  height: 2.75rem;
+  margin-left: auto;
+  border-radius: 50%;
+  color: var(--ink-2);
+  opacity: 0;
+  transition: opacity .2s, background-color .25s, color .25s;
+}
+
+.engrenage .icon {
+  width: 1.2rem;
+  height: 1.2rem;
+  transition: transform .6s var(--ease);
+}
+
+/* Visible quand la souris survole SON bloc, ou quand le focus clavier est dedans
+   (:focus-within). « > .bloc-tete > » : seul l'engrenage du bloc lui-même apparaît,
+   pas ceux des blocs qu'il contient (ses évaluations). */
+.bloc-modifiable:hover > .bloc-tete > .engrenage,
+.bloc-modifiable:focus-within > .bloc-tete > .engrenage {
+  opacity: 1;
+}
+
+/* Téléphone et tablette : pas de survol possible, l'engrenage est toujours visible. */
+@media (hover: none) {
+  .engrenage {
+    opacity: 1;
+  }
+}
+
+/* Survols : seulement sur les appareils qui ont un vrai pointeur (pas de survol « collé » au doigt) */
+@media (hover: hover) {
+  .brand:hover .brand__mono {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .header-link:hover,
+  .btn--secondary:hover:not(:disabled) {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--paper);
+  }
+
+  .header-link:hover .icon {
+    transform: translate(2px, -2px);
+  }
+
+  .btn--primary:hover:not(:disabled) {
+    background: var(--wire-deep);
+    border-color: var(--wire-deep);
+  }
+
+  /* La flèche d'import monte un peu */
+  .btn--primary:hover .icon,
+  .btn--secondary:hover:not(:disabled) .icon {
+    transform: translateY(-2px);
+  }
+
+  .btn--danger:hover,
+  .btn-icon:hover {
+    background: var(--error);
+    border-color: var(--error);
+    color: var(--sheet);
+  }
+
+  .segment:hover:not(:has(input:checked)) {
+    color: var(--ink);
+    background: var(--line-soft);
+  }
+
+  .tab:hover {
+    color: var(--ink);
+    --port-fill: var(--wire);
+  }
+
+  .tab:hover .tab__port {
+    transform: translateY(-2px);
+  }
+
+  /* L'engrenage tourne d'un cran */
+  .engrenage:hover {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .engrenage:hover .icon {
+    transform: rotate(60deg);
+  }
+
+  .input:hover:not(:disabled):not(:focus-visible):not([aria-invalid="true"]) {
+    border-color: var(--ink);
+  }
+
+  .avance summary:hover,
+  .rapport__ecarte summary:hover,
+  .site-footer a:hover {
+    color: var(--wire-deep);
+  }
+}
+
+.btn .icon {
+  transition: transform .35s var(--ease);
+}
+
+/* 11. FEUILLES ET BLOCS -----------------------------------------------------
+   Le semestre affiché : deux feuilles claires posées sur le papier (résultats, notes). */
 .app {
   display: grid;
   /* minmax(0, 1fr) : la colonne ne dépasse jamais la largeur de l'écran */
   grid-template-columns: minmax(0, 1fr);
-  gap: 1.5rem;
+  gap: clamp(1.25rem, 2.5vw, 2rem);
   align-items: start;
-  margin-bottom: 4rem;
+  margin: clamp(1.25rem, 3vw, 2.25rem) 0 clamp(3rem, 7vw, 6rem);
 }
 
 /* Par défaut, un élément de grille refuse d'être plus étroit que son contenu
@@ -264,7 +1256,6 @@ a:hover {
 /* Même raison pour toutes les grilles à une seule colonne de la page. */
 .saisie,
 .resultats,
-.resultats__contenu,
 .bloc,
 .liste,
 .ligne,
@@ -275,360 +1266,89 @@ a:hover {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.site-footer {
-  margin-top: auto;
-  border-top: 1px solid var(--line);
-}
-
-.site-footer__inner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: .5rem 1.5rem;
-  padding-block: 1.5rem 2rem;
-}
-
-.site-footer p {
-  font-size: .82rem;
-  color: var(--text-faint);
-}
-
-.site-footer a {
-  display: inline-block;
-  padding-block: .6rem; /* zone cliquable plus haute */
-  color: var(--text-dim);
-}
-
-/* ========== 5. Composants (repris de net-toolkit) ========== */
-
-/* Message affiché quand JavaScript est désactivé */
-.noscript {
-  margin-bottom: 1.5rem;
-  padding: .9rem 1.1rem;
-  color: var(--text);
-  background: var(--white);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-sm);
-}
-
-/* Onglets (comme le sélecteur de langue du portfolio) */
-.tabs {
-  display: flex;
-  gap: .25rem;
-  margin-bottom: 1.5rem;
-  padding: .3rem;
-  border-radius: 999px;
-  background: rgba(20, 24, 29, .055);
-  border: 1px solid var(--line);
-}
-
-.tab {
-  flex: 1;
-  min-height: 44px;
-  padding: .45rem .6rem;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  font: inherit;
-  font-size: .92rem;
-  font-weight: 600;
-  line-height: 1.2;
-  color: var(--text-dim);
-  cursor: pointer;
-  transition: background-color .3s var(--ease), color .3s var(--ease);
-}
-
-.tab:hover {
-  color: var(--text);
-  background: rgba(20, 24, 29, .06);
-}
-
-.tab[aria-selected='true'] {
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 6px 16px -8px rgba(29, 90, 102, .55);
-}
-
-/* Champs */
-.field {
-  display: grid;
-  gap: .4rem;
-  align-content: start;
-  min-width: 0;
-}
-
-.field--court {
-  max-width: 16rem;
-}
-
-label,
-legend {
-  font-size: .92rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.hint {
-  font-size: .84rem;
-  color: var(--text-faint);
-}
-
-.hint strong {
-  color: var(--text-dim);
-}
-
-.input {
-  width: 100%;
-  min-height: 48px;
-  padding: .7rem 1rem;
-  font: inherit;
-  font-size: 1rem; /* 16px : évite le zoom automatique de Safari sur iPhone */
-  color: var(--text);
-  background: var(--white);
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  box-shadow: inset 0 1px 2px rgba(20, 24, 29, .05);
-  transition: border-color .25s var(--ease);
-}
-
-.input:focus {
-  border-color: var(--accent);
-}
-
-.input::placeholder {
-  color: var(--text-faint);
-  opacity: 1;
-}
-
-/* Nombres : chiffres de même largeur, alignés */
-.input--num {
-  font-variant-numeric: tabular-nums;
-}
-
-select.input {
-  cursor: pointer;
-}
-
-.input[aria-invalid='true'] {
-  border-color: var(--error);
-}
-
-.field-error {
-  padding: .45rem .7rem;
-  font-size: .85rem;
-  color: var(--error);
-  background: var(--error-bg);
-  border: 1px solid var(--error-line);
-  border-radius: 10px;
-}
-
-/* Pas d'erreur = pas de cadre rouge vide */
-.field-error:empty {
-  display: none;
-}
-
-/* Boutons en pilule */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: .55rem;
-  min-height: 44px;
-  padding: .85rem 1.65rem;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  font: inherit;
-  font-size: .95rem;
-  font-weight: 600;
-  line-height: 1.2;
-  text-align: center;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background-color .3s var(--ease), box-shadow .3s var(--ease), transform .3s var(--ease);
-}
-
-.btn--primary {
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 10px 26px -10px rgba(29, 90, 102, .55);
-}
-
-.btn--primary:hover {
-  background: var(--accent-deep);
-}
-
-.btn--primary:active {
-  transform: translateY(1px);
-}
-
-.btn--secondary {
-  background: rgba(20, 24, 29, .05);
-  border-color: var(--line);
-  color: var(--text);
-}
-
-.btn--secondary:hover {
-  background: rgba(20, 24, 29, .08);
-}
-
-.btn--secondary:disabled {
-  opacity: .5;
-  cursor: not-allowed;
-}
-
-/* Suppression d'une ligne entière : discret, mais en rouge */
-.btn--danger {
-  background: transparent;
-  border-color: var(--error-line);
-  color: var(--error);
-}
-
-.btn--danger:hover {
-  background: var(--error-bg);
-}
-
-.btn--sm {
-  padding: .6rem 1.1rem;
-  font-size: .88rem;
-}
-
-/* Bouton rond avec seulement une icône (supprimer une ligne) */
-.btn-icon {
-  display: inline-grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: rgba(20, 24, 29, .05);
-  color: var(--text-dim);
-  cursor: pointer;
-  transition: background-color .3s var(--ease), color .3s var(--ease);
-}
-
-.btn-icon:hover {
-  background: var(--error-bg);
-  color: var(--error);
-}
-
-.icon {
-  width: 1.1em;
-  height: 1.1em;
-  flex: none;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .5rem;
-}
-
-/* Cartes (comme les cartes projets du portfolio) */
-.card {
-  padding: clamp(1rem, 3vw, 1.4rem);
-  background: var(--white);
-  border-radius: var(--r-md);
-  box-shadow:
-    0 20px 45px -32px rgba(29, 90, 102, .3),
-    0 2px 8px -3px rgba(20, 24, 29, .06);
-}
-
-.card h3 {
-  font-size: 1.1rem;
-}
-
-/* Tableaux */
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: .9rem;
-}
-
-.data-table thead th {
-  padding: .6rem .5rem;
-  font-family: var(--mono);
-  font-size: .68rem;
-  font-weight: 500;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  text-align: left;
-  color: var(--text-faint);
-  border-bottom: 1px solid var(--line);
-}
-
-.data-table td,
-.data-table tbody th {
-  padding: .6rem .5rem;
-  text-align: left;
-  vertical-align: top;
-  font-weight: 400;
-  border-bottom: 1px solid var(--line-soft);
-}
-
-.data-table tbody tr:last-child > * {
-  border-bottom: 0;
-}
-
-.data-table .num {
-  text-align: right;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-/* ========== 6. Saisie ========== */
+.resultats,
 .saisie {
   display: grid;
   gap: 1.5rem;
+  padding: var(--sheet-pad);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  background: var(--sheet);
+  box-shadow: var(--shadow-sheet);
+}
+
+.resultats:focus-visible,
+.saisie:focus-visible {
+  border-radius: var(--r-md);
 }
 
 .saisie__titre,
 .resultats__titre {
-  font-size: 1.5rem;
+  font-family: var(--serif);
+  font-size: clamp(1.85rem, 2.7vw, 2.4rem);
+  line-height: 1;
+  letter-spacing: -.03em;
 }
 
-/* « Rien n'est enregistré » : bien visible, sans le rouge des erreurs */
-.avis {
+.resultats > .hint,
+.saisie > .hint {
+  margin-top: 0;
+  max-width: 62ch;
+}
+
+/* « Rien n'est enregistré » : bien visible, avec le liseré du câble (pas le rouge des erreurs) */
+.avis,
+.noscript {
   display: flex;
   align-items: flex-start;
-  gap: .75rem;
-  padding: .9rem 1.1rem;
-  background: var(--warn-bg);
-  border: 2px solid var(--warn-strong);
-  border-radius: var(--r-sm);
+  gap: .8rem;
+  padding: .95rem 1.15rem;
+  border-left: 3px solid var(--wire);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  background: var(--paper);
 }
 
-.avis p {
-  color: var(--text);
+.avis p,
+.noscript {
+  color: var(--ink);
+}
+
+.noscript {
+  display: block;
+  margin-bottom: 2rem;
+  background: var(--sheet);
 }
 
 .avis__icone {
-  width: 1.4rem;
-  height: 1.4rem;
+  width: 1.3rem;
+  height: 1.3rem;
   flex: none;
-  margin-top: .05rem;
-  color: var(--warn-title);
+  margin-top: .15rem;
+  color: var(--wire-deep);
 }
 
-/* Une section de la saisie (UE, ressources, SAE, malus) */
+/* Une section d'une feuille (UE, malus, ressources, SAE) : filet à l'encre, titre en italique */
 .bloc {
   display: grid;
-  gap: .75rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--line);
+  gap: .9rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--ink);
 }
 
 .bloc__titre {
-  font-size: 1.2rem;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(1.45rem, 2.4vw, 1.8rem);
+  line-height: 1.1;
+  letter-spacing: -.015em;
+}
+
+.bloc > .hint {
+  margin-top: -.35rem;
 }
 
 .liste {
   display: grid;
-  gap: .75rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
 .liste:empty {
@@ -637,341 +1357,72 @@ select.input {
 
 .vide-texte {
   font-size: .9rem;
-  color: var(--text-faint);
+  color: var(--ink-3);
 }
 
-/* --- Bloc modifiable : son bouton engrenage « Modifier » --- */
 /* La tête d'un bloc : son titre, ses valeurs, puis l'engrenage tout à droite. */
 .bloc-tete {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: .25rem .75rem;
+  gap: .25rem .9rem;
 }
 
-/* Le bouton engrenage : transparent par défaut, mais TOUJOURS dans la page
-   (pas de display: none) : la touche Tab l'atteint, et il apparaît alors. */
-.engrenage {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 44px; /* cible tactile d'au moins 44 × 44 px */
-  height: 44px;
-  margin-left: auto;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-dim);
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity .2s var(--ease), background-color .2s var(--ease), color .2s var(--ease);
-}
-
-.engrenage .icon {
-  width: 1.2rem;
-  height: 1.2rem;
-}
-
-/* Visible quand la souris survole SON bloc, ou quand le focus clavier est
-   dedans (:focus-within). « > .bloc-tete > » : seul l'engrenage du bloc
-   lui-même apparaît, pas ceux des blocs qu'il contient (ses évaluations). */
-.bloc-modifiable:hover > .bloc-tete > .engrenage,
-.bloc-modifiable:focus-within > .bloc-tete > .engrenage {
-  opacity: 1;
-}
-
-.engrenage:hover {
-  color: var(--accent-deep);
-  background: var(--accent-soft);
-}
-
-/* Téléphone et tablette : pas de survol possible, l'engrenage est toujours visible. */
-@media (hover: none) {
-  .engrenage {
-    opacity: 1;
-  }
-}
-
-/* --- Vue d'une ressource ou d'une partie SAE --- */
-.ligne {
-  display: grid;
-  gap: .6rem;
-  padding: .75rem 1rem 1rem;
-  background: rgba(255, 255, 255, .7);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--r-sm);
-}
-
-/* La ligne en cours d'édition : l'éditeur prend toute la place. */
-.ligne--edition {
-  padding: 0;
-  background: none;
-  border: 0;
-}
-
-.ligne__titre {
-  flex: 1 1 12rem;
-  min-width: 0;
-  margin: 0;
-  font-family: var(--display);
-  font-stretch: 82%;
-  font-size: 1.02rem;
-  font-weight: 600;
-  color: var(--text);
-  overflow-wrap: anywhere;
-}
-
-.ligne__moyenne {
-  font-size: .85rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-dim);
-}
-
-.ligne__coefs {
-  font-size: .84rem;
-  color: var(--text-faint);
-}
-
-/* --- Vue d'une évaluation --- */
-.evaluations-vue {
-  display: grid;
-  gap: .4rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.evaluation-vue {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-areas:
-    'tete'
-    'viser';
-  gap: .2rem;
-  padding: .35rem .25rem .35rem .75rem;
-  background: var(--white);
-  border: 1px solid var(--line-soft);
-  border-radius: 12px;
-}
-
-.evaluation-vue__tete { grid-area: tete; }
-/* Seulement dans une évaluation : la carte d'UE a aussi un .a-viser, mais pas de zone « viser ». */
-.evaluation-vue .a-viser { grid-area: viser; }
-
-/* L'évaluation en cours d'édition : l'éditeur prend toute la place. */
-.evaluation-vue--edition {
-  display: block;
-  padding: 0;
-  border: 0;
-}
-
-.evaluation-vue__libelle {
-  flex: 1 1 10rem;
-  min-width: 0;
-  font-size: .92rem;
-  color: var(--text);
-  overflow-wrap: anywhere;
-}
-
-/* La note et le coef, côte à côte */
-.evaluation-vue__valeurs {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: .25rem .75rem;
-}
-
-.evaluation-vue__note,
-.evaluation-vue__coef {
-  font-size: .88rem;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.evaluation-vue__note {
-  font-weight: 600;
-  color: var(--accent-deep);
-}
-
-.evaluation-vue__note--vide {
-  font-weight: 400;
-  color: var(--text-faint);
-}
-
-.evaluation-vue__coef {
-  color: var(--text-dim);
-}
-
-/* « coef inconnu » : à compléter, avec l'ambre des avis. */
-.evaluation-vue__coef--inconnu {
-  padding: .05rem .5rem;
-  color: var(--warn-text);
-  background: var(--warn-bg);
-  border-radius: 999px;
-}
-
-/* Le malus (vue) */
-.malus-vue__texte {
-  flex: 1;
-  font-size: .92rem;
-}
-
-/* --- Éditeur d'un bloc : « Valider », « Annuler » (Échap) --- */
-.editeur {
-  display: grid;
-  gap: 1rem;
-  padding: 1rem;
-  background: var(--white);
-  border: 2px solid var(--accent);
-  border-radius: var(--r-sm);
-  box-shadow: 0 8px 24px -14px var(--accent-glow);
-}
-
-.editeur__titre {
-  font-weight: 600;
-  color: var(--text);
-  overflow-wrap: anywhere;
-}
-
-.editeur__grille {
-  display: grid;
-  gap: .75rem;
-}
-
-.editeur__pied {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .6rem;
-}
-
-/* « Supprimer… » à l'écart des deux autres boutons, pour ne pas le cliquer par erreur. */
-.editeur__pied .btn--danger {
-  margin-left: auto;
-}
-
-
-/* Groupe de champs (fieldset sans cadre) */
-.groupe {
-  display: grid;
-  gap: .6rem;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
-}
-
-.groupe legend {
-  padding: 0;
-  margin-bottom: .2rem;
-}
-
-/* Coefficients par UE : autant de petites cases que d'UE */
-.coefs {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
-  gap: .6rem;
-}
-
-/* --- Évaluations. Mobile : libellé, puis note | coef | supprimer --- */
-.evaluations {
-  display: grid;
-  gap: .6rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.evaluations:empty {
-  display: none;
-}
-
-.evaluation {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
-  grid-template-areas:
-    'libelle libelle libelle'
-    'note    coef    suppr';
-  gap: .6rem;
-  padding: .75rem;
-  background: var(--white);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--r-sm);
-}
-
-.evaluation__libelle { grid-area: libelle; }
-.evaluation__note { grid-area: note; }
-.evaluation__coef { grid-area: coef; }
-
-.evaluation__suppr {
-  grid-area: suppr;
-  margin-top: calc(.92rem * 1.55 + .4rem);
-}
-
-/* Note à viser sous une évaluation non notée */
-.a-viser {
-  font-size: .86rem;
-  color: var(--text-dim);
-}
-
-.a-viser strong {
-  color: var(--accent-deep);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ========== 7. Résultats ========== */
-.resultats {
-  display: grid;
-  gap: 1.25rem;
-}
-
-.resultats__contenu {
-  display: grid;
-  gap: 1rem;
-}
-
-.resultats__note {
-  font-size: .8rem;
-}
-
-/* Carte d'une UE */
+/* 12. RÉSULTATS -------------------------------------------------------------
+   Chaque UE : son code en serif, sa moyenne en très grand chiffre, puis ses pôles. */
 .ue-resultat {
   display: grid;
-  gap: .7rem;
+  gap: .75rem;
+  padding: 1.05rem 0 1.3rem;
+  border-top: 1px solid var(--line);
+}
+
+#liste-ues > li:first-child > .ue-resultat {
+  padding-top: .2rem;
+  border-top: 0;
 }
 
 .ue-resultat__tete {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: .25rem 1rem;
+  align-items: flex-end;
+}
+
+.ue-resultat h4 {
+  flex: 1 1 9rem;
+  min-width: 0;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 1.6rem;
+  line-height: 1.1;
+  letter-spacing: -.02em;
+  overflow-wrap: anywhere;
 }
 
 .ue-resultat__intitule {
   font-family: var(--sans);
-  font-size: .9rem;
+  font-size: .92rem;
   font-weight: 500;
-  color: var(--text-dim);
+  letter-spacing: 0;
+  color: var(--ink-2);
 }
 
+/* La moyenne : le chiffre que l'on vient chercher */
 .moyenne {
-  margin: 0;
-  font-family: var(--display);
-  font-stretch: 82%;
-  font-size: 2rem;
-  font-weight: 600;
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-  color: var(--accent-deep);
+  font-family: var(--serif);
+  font-weight: 350;
+  font-size: clamp(2.7rem, 5vw, 3.6rem);
+  line-height: .9;
+  letter-spacing: -.04em;
+  font-variant-numeric: lining-nums tabular-nums;
+  color: var(--ink);
 }
 
 .moyenne--vide {
-  font-size: 1rem;
   font-family: var(--sans);
   font-weight: 500;
-  color: var(--text-faint);
+  font-size: .92rem;
+  line-height: 1.4;
+  letter-spacing: 0;
+  color: var(--ink-3);
 }
 
 .etiquettes {
@@ -984,309 +1435,733 @@ select.input {
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: .2rem .7rem;
+  gap: .45rem;
+  padding: .2rem .75rem;
+  border: 1px solid var(--ink);
   border-radius: 999px;
-  font-size: .78rem;
+  font-size: .8rem;
   font-weight: 600;
   line-height: 1.4;
+  color: var(--ink);
 }
 
-/* Dans un tableau, une pastille ne passe jamais sur deux lignes */
+/* « Provisoire » : pastille du câble + texte à l'encre */
+.badge--provisoire {
+  border-color: var(--field-line);
+  font-weight: 500;
+}
+
+.badge--provisoire::before {
+  content: '';
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--wire);
+}
+
+/* Repère par rapport à 10 : volontairement neutre (pas de vert ni de rouge, pas de verdict).
+   Au moins 10 : pastille pleine ; moins de 10 : pastille en pointillés. */
+.badge--haut {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.badge--bas {
+  border-style: dashed;
+  border-color: var(--field-line);
+  color: var(--ink-2);
+}
+
+.badge,
 .data-table .badge {
   white-space: nowrap;
 }
 
-/* Petite précision sous une valeur de tableau (UE d'une compétence, « provisoire ») */
-.data-table .precision {
-  display: block;
-  font-size: .78rem;
-  color: var(--text-faint);
-}
-
 .badge--provisoire {
-  color: var(--warn-text);
-  background: var(--warn-bg);
-  border: 1px solid var(--warn-line);
+  white-space: normal;
 }
 
-/* Repère par rapport à 10 : volontairement neutre (pas de vert ni de rouge, pas de verdict) */
-.badge--haut {
-  color: var(--accent-deep);
-  background: var(--accent-soft);
-  border: 1px solid var(--line-strong);
-}
-
-.badge--bas {
-  color: var(--text-dim);
-  background: transparent;
-  border: 1px dashed var(--line-strong);
-}
-
-/* Pôles et malus : libellé à gauche, valeur à droite */
+/* Pôles et malus : libellé à gauche, valeur à droite, un trait fin entre les lignes */
 .poles {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: .3rem 1rem;
-  margin: 0;
-  font-size: .9rem;
+  font-size: .92rem;
+}
+
+.poles dt,
+.poles dd {
+  padding: .45rem 0;
+  border-top: 1px solid var(--line-soft);
 }
 
 .poles dt {
-  color: var(--text-dim);
+  color: var(--ink-2);
 }
 
 .poles dd {
-  margin: 0;
+  padding-left: 1rem;
   text-align: right;
+  font-family: var(--mono);
   font-variant-numeric: tabular-nums;
-  color: var(--text);
+  color: var(--ink);
 }
 
 .poles .hint {
-  font-size: .8rem;
+  font-size: .82rem;
 }
 
+/* Écart avec le relevé, total de coefficients incorrect : liseré du câble */
 .alerte {
-  padding: .5rem .75rem;
-  font-size: .85rem;
-  color: var(--warn-text);
-  background: var(--warn-bg);
-  border-radius: 10px;
+  padding: .55rem .85rem;
+  border-left: 3px solid var(--wire);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  background: var(--paper);
+  font-size: .88rem;
+  color: var(--ink);
 }
 
-/* Comparaison « calculé / officiel » (relevé importé) */
-.comparaison caption {
-  padding-bottom: .3rem;
-  font-size: .8rem;
+/* Note à viser : précédée d'un petit tronçon de câble */
+.a-viser {
+  position: relative;
+  padding-left: 1.7rem;
+  font-size: .9rem;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.a-viser::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: .62em;
+  width: 1.1rem;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--wire);
+}
+
+.a-viser strong {
+  font-family: var(--mono);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  box-shadow: inset 0 -1.5px 0 var(--wire);
+}
+
+/* Tableaux : traits fins, en-têtes discrets, chiffres en mono alignés à droite */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .92rem;
+  line-height: 1.4;
+}
+
+.data-table th,
+.data-table td {
+  padding: .55rem .9rem .55rem 0;
+  border-bottom: 1px solid var(--line-soft);
   text-align: left;
-  color: var(--text-faint);
+  vertical-align: top;
+  font-weight: 400;
 }
 
-/* Écart de plus de 0,01 avec le relevé : même ambre que « provisoire » */
+.data-table th:last-child,
+.data-table td:last-child {
+  padding-right: 0;
+}
+
+.data-table thead th {
+  border-bottom: 1px solid var(--ink);
+  font-size: .8rem;
+  font-weight: 500;
+  color: var(--ink-2);
+  vertical-align: bottom;
+}
+
+.data-table tbody th {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.data-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.data-table .num {
+  text-align: right;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Les titres de colonnes restent en sans : seules les valeurs sont en mono */
+.data-table thead .num {
+  font-family: var(--sans);
+}
+
+.data-table td.num {
+  color: var(--ink);
+}
+
+/* Petite précision sous une valeur (UE d'une compétence, « provisoire ») */
+.data-table .precision {
+  display: block;
+  font-family: var(--sans);
+  font-size: .78rem;
+  font-weight: 400;
+  color: var(--ink-3);
+  white-space: normal;
+}
+
+/* Écart de plus de 0,01 avec le relevé */
 .data-table .ecart {
   font-weight: 600;
-  color: var(--warn-text);
+  color: var(--wire-deep);
 }
 
-/* ========== 7 bis. Choix de l'année et du parcours ========== */
-.annee {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: .75rem;
-  margin-bottom: 1.5rem;
+.comparaison caption {
+  padding-bottom: .35rem;
+  font-size: .82rem;
+  text-align: left;
+  color: var(--ink-3);
 }
 
-.annee__titre {
-  font-size: 1.3rem;
-}
-
-.annee__form {
-  display: flex;
-  flex-wrap: wrap;
-  /* Alignés par le haut : un message d'erreur sous un groupe ne décale pas l'autre. */
-  align-items: flex-start;
-  gap: 1rem 1.5rem;
-}
-
-/* Le bouton « Créer mes semestres » a sa propre ligne, sous les choix. */
-.annee__envoi {
-  flex-basis: 100%;
-}
-
-/* Un groupe de choix (Année, Parcours) : légende au-dessus des boutons */
-.choix {
-  display: grid;
-  gap: .4rem;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
-}
-
-.choix legend {
-  padding: 0;
-  margin-bottom: .4rem;
-}
-
-/* Boutons radio présentés comme les onglets (une « pilule » par choix).
-   Le vrai bouton radio reste dans la page : clavier (flèches) et lecteurs
-   d'écran fonctionnent comme pour tout groupe de boutons radio. */
-.segments {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: .25rem;
-  padding: .3rem;
-  border-radius: 999px;
-  background: rgba(20, 24, 29, .055);
-  border: 1px solid var(--line);
-}
-
-.segment {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  min-width: 4.5rem;
-  padding: .45rem 1.1rem;
-  border-radius: 999px;
-  color: var(--text-dim);
-  cursor: pointer;
-  transition: background-color .3s var(--ease), color .3s var(--ease);
-}
-
-/* Le rond du bouton radio est invisible, mais toujours là (et cliquable). */
-.segment input {
-  position: absolute;
-  inset: 0;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.segment:hover {
-  color: var(--text);
-  background: rgba(20, 24, 29, .06);
-}
-
-.segment:has(input:checked) {
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 6px 16px -8px rgba(29, 90, 102, .55);
-}
-
-/* Le focus clavier se voit sur la pilule (le rond, lui, est invisible). */
-.segment:has(input:focus-visible) {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
-
-/* Choix manquant : la pilule entière est bordée de rouge (message en dessous). */
-.choix--erreur .segments {
-  border-color: var(--error-line);
-}
-
-.annee__etat {
-  font-size: .92rem;
-  color: var(--text);
-}
-
-.annee__etat:empty {
+/* Compétences de l'année : le seul panneau sombre de la page (comme le bloc Contact du
+   portfolio). C'est le bilan : l'encre devient le fond, le papier devient le texte. */
+#competences:empty {
   display: none;
 }
 
-/* ========== 7 ter. Import des PDF ========== */
-.import {
+#competences .card {
+  /* Filet de sécurité : si le tableau était un jour trop large, il défilerait dans le panneau, pas la page */
+  overflow-x: auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: .75rem;
-  margin-bottom: 1.5rem;
+  gap: .8rem;
+  padding: clamp(1.15rem, 2.5vw, 1.6rem);
+  border-radius: var(--r-md);
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: 0 30px 60px -34px rgba(21, 24, 27, .6);
 }
 
-.import__titre {
-  font-size: 1.3rem;
+#competences h3 {
+  font-family: var(--serif);
+  font-size: clamp(1.5rem, 2.4vw, 1.8rem);
+  line-height: 1.1;
+  letter-spacing: -.02em;
+  color: var(--paper);
 }
 
-.import__facultatif {
-  font-family: var(--sans);
-  font-size: .9rem;
-  font-weight: 500;
-  color: var(--text-dim);
+#competences .hint,
+#competences .data-table .precision,
+#competences .data-table thead th {
+  color: var(--paper-soft);
 }
 
-.import__etat:empty {
-  display: none;
+#competences .hint {
+  margin-top: 0;
 }
 
-/* Rapport du dernier import */
-.rapport {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: .9rem;
-  padding: 1rem 1.1rem;
-  background: var(--white);
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
+#competences .data-table th,
+#competences .data-table td {
+  border-bottom-color: var(--paper-line);
+  color: var(--paper);
 }
 
-.rapport__titre {
-  font-size: 1.1rem;
+#competences .data-table thead th {
+  border-bottom-color: rgba(236, 237, 232, .5);
 }
 
-.rapport__partie {
-  display: grid;
-  gap: .4rem;
-  padding-left: .75rem;
-  border-left: 3px solid var(--line-strong);
+#competences .data-table tbody th {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 1.35rem;
+  line-height: 1.15;
+  letter-spacing: -.02em;
 }
 
-/* « À compléter » : mis en avant, avec l'ambre des avis */
-.rapport__partie--completer {
-  border-left-color: var(--warn-strong);
+#competences .data-table tbody td.num {
+  font-size: 1rem;
 }
 
-.rapport h4 {
-  margin: 0;
+#competences .badge {
+  border-color: rgba(236, 237, 232, .55);
+  color: var(--paper);
+}
+
+#competences .badge--haut {
+  border-color: var(--paper);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+#competences .badge--bas {
+  color: var(--paper-soft);
+}
+
+/* Sur l'encre, l'orange du câble est lisible (4,9:1) */
+#competences .data-table .ecart {
+  color: var(--wire);
+}
+
+.malus-vue__texte {
+  flex: 1;
   font-size: .95rem;
-  color: var(--text);
+  color: var(--ink);
 }
 
-.rapport ul {
+.resultats > .resultats__note {
+  max-width: none;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  font-size: .82rem;
+}
+
+/* 13. NOTES : RESSOURCES ET PÔLE SAE ----------------------------------------
+   Une ligne par ressource, séparées par un trait fin ; ses évaluations en retrait,
+   accrochées à un filet vertical. */
+.ligne {
   display: grid;
-  gap: .35rem;
-  margin: 0;
-  padding-left: 1.1rem;
-  font-size: .9rem;
-  color: var(--text-dim);
+  gap: .5rem;
+  padding: .9rem 0 1.05rem;
+  border-top: 1px solid var(--line);
 }
 
-/* Les longs codes (S3.01 – UE3.2…) passent à la ligne au lieu de déborder */
-.rapport li {
+.liste > .ligne:first-child {
+  border-top: 0;
+  padding-top: .1rem;
+}
+
+/* La ligne en cours d'édition : l'éditeur prend toute la place. */
+.ligne--edition {
+  padding: .9rem 0;
+}
+
+.ligne__titre {
+  flex: 1 1 12rem;
+  min-width: 0;
+  font-family: var(--sans);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink);
+  text-wrap: pretty;
   overflow-wrap: anywhere;
 }
 
-.rapport__ecarte summary {
-  display: flex;
+/* « moy. 12,50 » ou « pas de note » : chiffres de même largeur */
+.ligne__moyenne {
+  font-size: .92rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.ligne__coefs {
+  font-family: var(--mono);
+  font-size: .8rem;
+  line-height: 1.5;
+  color: var(--ink-3);
+  overflow-wrap: anywhere;
+}
+
+.evaluations-vue {
+  display: grid;
+  margin-top: .2rem;
+  border-left: 2px solid var(--line);
+}
+
+.evaluation-vue {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'tete'
+    'viser';
+  gap: .15rem;
+  padding: .3rem 0 .3rem .9rem;
+}
+
+.evaluation-vue + .evaluation-vue {
+  border-top: 1px solid var(--line-soft);
+}
+
+.evaluation-vue__tete { grid-area: tete; }
+/* Seulement dans une évaluation : la carte d'UE a aussi un .a-viser, mais pas de zone « viser ». */
+.evaluation-vue .a-viser { grid-area: viser; }
+
+.evaluation-vue .a-viser {
+  margin-bottom: .35rem;
+}
+
+/* L'évaluation en cours d'édition : l'éditeur prend toute la place. */
+.evaluation-vue--edition {
+  display: block;
+  padding: .6rem 0 .6rem .9rem;
+}
+
+.evaluation-vue__libelle {
+  flex: 1 1 10rem;
+  min-width: 0;
+  font-size: .94rem;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+/* La note et le coef, côte à côte */
+.evaluation-vue__valeurs {
+  display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  min-height: 44px;
-  font-size: .9rem;
+  gap: .25rem .8rem;
+}
+
+.evaluation-vue__note,
+.evaluation-vue__coef {
+  font-family: var(--mono);
+  font-size: .88rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.evaluation-vue__note {
+  color: var(--ink);
+  box-shadow: inset 0 -1.5px 0 var(--ink);
+}
+
+.evaluation-vue__note--vide {
+  font-family: var(--sans);
+  color: var(--ink-3);
+  box-shadow: none;
+}
+
+.evaluation-vue__coef {
+  color: var(--ink-2);
+}
+
+/* « coef inconnu » : à compléter, pastille en pointillés avec le point du câble */
+.evaluation-vue__coef--inconnu {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .1rem .6rem;
+  border: 1px dashed var(--wire-deep);
+  border-radius: 999px;
+  font-family: var(--sans);
   font-weight: 600;
-  cursor: pointer;
+  font-size: .8rem;
+  color: var(--wire-deep);
 }
 
-.rapport > .btn {
-  justify-self: start;
+/* 14. ÉDITEURS --------------------------------------------------------------
+   Le bloc en cours de modification : une fiche blanche cerclée d'encre,
+   avec « Valider », « Annuler » (Échap) et « Supprimer… ». */
+.editeur {
+  display: grid;
+  gap: 1.1rem;
+  padding: clamp(1rem, 2.5vw, 1.35rem);
+  border: 1.5px solid var(--ink);
+  border-radius: var(--r-md);
+  background: #fff;
+  box-shadow: var(--shadow-sheet);
 }
 
-/* Menu « Avancé » (import du tableau des coefficients) : replié par défaut */
-.avance summary {
-  /* list-item : garde le triangle qui montre qu'on peut déplier. */
-  display: list-item;
-  width: fit-content;
-  padding-block: .65rem;
-  font-size: .9rem;
-  font-weight: 600;
-  color: var(--text-dim);
-  cursor: pointer;
+.editeur__titre {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  letter-spacing: -.01em;
+  color: var(--ink);
+  overflow-wrap: anywhere;
 }
 
-.avance summary:hover {
-  color: var(--text);
+.editeur__grille {
+  display: grid;
+  gap: .9rem;
 }
 
-.avance__corps {
+.editeur > .hint {
+  margin-top: -.5rem;
+}
+
+.editeur__pied {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+/* « Supprimer… » à l'écart des deux autres boutons, pour ne pas le cliquer par erreur. */
+.editeur__pied .btn--danger {
+  margin-left: auto;
+}
+
+/* Groupe de champs (fieldset sans cadre) */
+.groupe {
   display: grid;
   gap: .6rem;
-  padding-top: .25rem;
+  min-width: 0;
+  border: 0;
 }
 
-/* ========== 8. Responsive ========== */
+.groupe .hint {
+  margin-top: -.3rem;
+}
 
-/* Sous 760px : flou réduit (plus léger pour les téléphones) */
-@media (max-width: 759.98px) {
-  .panel {
-    -webkit-backdrop-filter: blur(14px) saturate(170%);
-    backdrop-filter: blur(14px) saturate(170%);
+/* Coefficients par UE : autant de petites cases que d'UE */
+.coefs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: .7rem;
+}
+
+.coefs .field > label,
+.evaluation .field > label {
+  font-size: .84rem;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.coefs .field > label {
+  font-family: var(--mono);
+  font-size: .8rem;
+}
+
+.coefs .input,
+.evaluation .input {
+  margin-top: .3rem;
+}
+
+/* --- Évaluations dans l'éditeur. Mobile : libellé, puis note | coef | retirer --- */
+.evaluations {
+  display: grid;
+}
+
+.evaluations:empty {
+  display: none;
+}
+
+.evaluation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-areas:
+    'libelle libelle libelle'
+    'note    coef    suppr';
+  gap: .65rem;
+  padding: .8rem 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.evaluation__libelle { grid-area: libelle; }
+.evaluation__note { grid-area: note; }
+.evaluation__coef { grid-area: coef; }
+
+/* Aligné sur le champ voisin : hauteur du libellé + son écart + demi-différence de hauteur */
+.evaluation__suppr {
+  grid-area: suppr;
+  margin-top: calc(.84rem * 1.35 + .3rem + .125rem);
+}
+
+/* 15. PIED DE PAGE ET PAGE 404 ---------------------------------------------- */
+.site-footer {
+  padding: 1.25rem 0 2.5rem;
+}
+
+.site-footer__inner {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .25rem 2rem;
+  padding-top: 1.1rem;
+}
+
+/* Le filet du pied de page s'arrête aux marges du contenu, comme tous les autres */
+.site-footer__inner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--gutter);
+  right: var(--gutter);
+  height: 1px;
+  background: var(--line);
+}
+
+.site-footer p {
+  font-size: .92rem;
+  color: var(--ink-2);
+}
+
+.site-footer__liens {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+}
+
+.site-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 600;
+  color: var(--ink);
+  text-underline-offset: .25em;
+  transition: color .2s;
+}
+
+/* Page 404 : pas de prise, le fil n'est qu'un trait sous le titre ; puis une petite feuille, un message, un bouton */
+.hero--court .hero__haut {
+  display: flex;
+  padding-right: 0;
+}
+
+.hero--court .fil {
+  top: auto;
+  right: 0;
+  height: 0;
+  max-width: 28rem;
+  border-width: 0 0 5px;
+  border-radius: 0;
+  animation: none;
+}
+
+.panel--court {
+  max-width: 40rem;
+  margin-bottom: clamp(3rem, 7vw, 6rem);
+  padding: var(--sheet-pad);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  background: var(--sheet);
+  box-shadow: var(--shadow-sheet);
+}
+
+.panel--court p {
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+.panel__action {
+  margin-top: 1.4rem;
+}
+
+/* 16. APPARITIONS -----------------------------------------------------------
+   Discrètes et courtes, en CSS seulement : aucun script d'animation à charger. */
+@media (prefers-reduced-motion: no-preference) {
+  /* Ouverture : les deux lignes du titre montent, puis le câble se déroule depuis la prise */
+  .ligne-titre__in {
+    animation: monte .95s var(--ease) both;
+  }
+
+  .ligne-titre + .ligne-titre .ligne-titre__in {
+    animation-delay: .09s;
+  }
+
+  .eyebrow,
+  .etat,
+  .hero__bas,
+  .annee,
+  .import {
+    animation: apparait .8s var(--ease) both;
+  }
+
+  .hero__bas { animation-delay: .35s; }
+  .annee { animation-delay: .5s; }
+  .import { animation-delay: .58s; }
+
+  /* clip-path dévoile le câble dans l'ordre du tracé : d'abord la descente, puis le virage vers la gauche */
+  .fil {
+    animation: deroule 1.5s .3s cubic-bezier(.6, 0, .25, 1) both;
+  }
+
+  .fil__bout {
+    animation: pose .5s 1.7s cubic-bezier(.34, 1.56, .64, 1) both;
+  }
+
+  /* Un éditeur qui s'ouvre, un rapport d'import qui arrive, le bilan des compétences */
+  .editeur,
+  .rapport {
+    animation: apparait .45s var(--ease);
+  }
+}
+
+@keyframes monte {
+  from { transform: translateY(112%); }
+}
+
+@keyframes apparait {
+  from { opacity: 0; transform: translateY(14px); }
+}
+
+@keyframes deroule {
+  0% { clip-path: inset(-24px -24px 100% calc(100% - 40px)); }
+  45% { clip-path: inset(-24px -24px -24px calc(100% - 40px)); }
+  100% { clip-path: inset(-24px -24px -24px -24px); }
+}
+
+@keyframes pose {
+  from { transform: scale(0); }
+}
+
+/* 17. RESPONSIVE ------------------------------------------------------------
+   L'interface est pensée d'abord pour un téléphone de 320 px ; chaque palier ajoute de la place. */
+
+/* Très petits écrans (moins de 400px) : la barre d'en-tête se resserre pour tout garder sur une ligne */
+@media (max-width: 399.98px) {
+  .site-header__inner {
+    gap: .5rem;
+  }
+
+  .brand {
+    gap: .5rem;
+    font-size: .9rem;
+  }
+
+  .brand__mono {
+    width: 2rem;
+    height: 2rem;
+    font-size: .88rem;
+  }
+
+  .header-link {
+    gap: .3rem;
+    padding: 0 .75rem 0 .85rem;
+    font-size: .82rem;
+  }
+}
+
+/* Téléphone (moins de 480px) : le panneau sombre des compétences va d'un bord à l'autre de la feuille,
+   et son tableau se resserre : ses quatre colonnes tiennent sans rien masquer. */
+@media (max-width: 479.98px) {
+  #competences .card {
+    margin-inline: calc(var(--sheet-pad) * -1);
+    padding-inline: var(--sheet-pad);
+    border-radius: 0;
+  }
+
+  #competences .data-table th,
+  #competences .data-table td {
+    padding-right: .5rem;
+  }
+
+  #competences .data-table th:last-child,
+  #competences .data-table td:last-child {
+    padding-right: 0;
+  }
+
+  #competences .data-table thead th {
+    font-size: .76rem;
+  }
+
+  #competences .data-table tbody td.num {
+    font-size: .88rem;
+  }
+
+  #competences .badge {
+    padding-inline: .5rem;
   }
 }
 
@@ -1297,7 +2172,7 @@ select.input {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: .15rem .5rem;
+    gap: .2rem .5rem;
   }
 
   /* Tout dans la première colonne, l'un sous l'autre… */
@@ -1312,19 +2187,7 @@ select.input {
   }
 }
 
-/* À partir de 480px : les onglets ne prennent que la place nécessaire */
-@media (min-width: 480px) {
-  .tabs {
-    display: inline-flex;
-    max-width: 100%;
-  }
-
-  .tab {
-    padding-inline: 1.1rem;
-  }
-}
-
-/* À partir de 600px : lignes sur une seule rangée */
+/* À partir de 600px : champs sur une seule rangée, onglets plus larges */
 @media (min-width: 600px) {
   .editeur__grille {
     grid-template-columns: minmax(7rem, 10rem) minmax(0, 1fr);
@@ -1334,31 +2197,206 @@ select.input {
     grid-template-columns: minmax(0, 1fr) minmax(5.5rem, 7rem) minmax(5rem, 6rem) auto;
     grid-template-areas: 'libelle note coef suppr';
   }
+
+  .tab {
+    flex-direction: row;
+    gap: .75rem;
+    min-height: 5rem;
+  }
+
+  .tab__port {
+    width: 34px;
+  }
+
+  .tab__nom {
+    font-size: 1.7rem;
+  }
+}
+
+/* À partir de 760px : le nom de l'outil rejoint la barre d'en-tête */
+@media (min-width: 760px) {
+  .site-header__outil {
+    display: flex;
+  }
+}
+
+/* À partir de 860px : la prise passe à droite du titre, le texte du hero sur deux colonnes */
+@media (min-width: 860px) {
+  .hero__haut {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--etat-w);
+    grid-template-areas:
+      "sur etat"
+      "titre etat";
+    column-gap: 2rem;
+    padding-right: 0;
+  }
+
+  .eyebrow { grid-area: sur; }
+  .hero h1 { grid-area: titre; }
+
+  .etat {
+    grid-area: etat;
+    flex-direction: row;
+    justify-content: flex-start;
+    margin: 0;
+  }
+
+  /* Le câble reste centré sous la prise, qui est maintenant au début de la colonne de droite */
+  .fil {
+    right: calc(var(--etat-w) - (var(--jack-w) + 5px) / 2);
+    left: -.75rem;
+    bottom: -1.9rem;
+    border-bottom-right-radius: 38px;
+  }
+
+  .hero__bas {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 32rem);
+    align-items: start;
+  }
+}
+
+/* À partir de 900px : numéro et titre de l'étape à gauche, contenu à droite */
+@media (min-width: 900px) {
+  .annee,
+  .import {
+    grid-template-columns: 17rem minmax(0, 1fr);
+    padding-top: 1.1rem;
+  }
 }
 
 /* À partir de 1080px : résultats et notes côte à côte ; les résultats restent visibles
-   (position sticky) pendant qu'on fait défiler les notes. */
+   (position sticky, sous la barre d'en-tête) pendant qu'on fait défiler les notes. */
 @media (min-width: 1080px) {
   .app {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
   }
 
   .resultats {
     position: sticky;
-    top: 1rem;
-    max-height: calc(100vh - 2rem);
+    top: calc(var(--nav-h) + 1rem);
+    max-height: calc(100vh - var(--nav-h) - 2rem);
     overflow-y: auto;
+    scrollbar-color: var(--line) transparent;
   }
 }
 
-/* ========== 9. Mouvement réduit : on coupe toutes les transitions ========== */
+/* Impression : la feuille de résultats et les notes, sans décor ni boutons */
+@media print {
+  body {
+    display: block;
+    background: #fff;
+  }
+
+  .site-header,
+  .site-footer,
+  .skip-link,
+  .etat,
+  .fil,
+  .hero__bas,
+  .annee,
+  .import,
+  .semestres__label,
+  .tabs,
+  .engrenage,
+  .actions,
+  .avis,
+  .bloc > div > .btn {
+    display: none !important;
+  }
+
+  .wrap {
+    max-width: none;
+    padding: 0;
+  }
+
+  .hero {
+    padding: 0 0 .4cm;
+  }
+
+  .hero__haut {
+    display: block;
+    padding: 0;
+  }
+
+  .hero h1 {
+    margin: 0;
+    font-size: 20pt;
+  }
+
+  .ligne-titre,
+  .ligne-titre__in {
+    display: inline;
+    overflow: visible;
+    padding: 0;
+    margin: 0;
+  }
+
+  .app {
+    display: block;
+    margin: 0;
+  }
+
+  .resultats,
+  .saisie {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    padding: 0 0 .6cm;
+    border: 0;
+    box-shadow: none;
+    background: none;
+  }
+
+  #competences .card {
+    border: 1px solid #000;
+    background: none;
+    box-shadow: none;
+  }
+
+  #competences .card *,
+  .moyenne {
+    color: #000 !important;
+  }
+
+  .ue-resultat,
+  .ligne,
+  #competences .card {
+    break-inside: avoid;
+  }
+}
+
+/* 18. PRÉFÉRENCES D'ACCESSIBILITÉ ------------------------------------------- */
+/* « Moins de mouvement » : plus aucune animation ni transition (les apparitions sont déjà
+   dans un bloc « no-preference » ; ceci coupe aussi les micro-interactions). */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     transition-duration: .01ms !important;
     animation-duration: .01ms !important;
+    animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Contraste renforcé demandé par le système : traits et textes discrets passent à l'encre */
+@media (prefers-contrast: more) {
+  :root {
+    --ink-2: #15181B;
+    --ink-3: #2A2F34;
+    --line: rgba(21, 24, 27, .6);
+    --line-soft: rgba(21, 24, 27, .4);
+    --field-line: #15181B;
+  }
+}
+
+/* Mode « couleurs forcées » (contraste élevé de Windows) : les états gardent un repère visible */
+@media (forced-colors: active) {
+  .tab[aria-selected="true"],
+  .segment:has(input:checked) {
+    outline: 2px solid Highlight;
+    outline-offset: -4px;
   }
 }

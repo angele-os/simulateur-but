@@ -13,7 +13,7 @@ Simulateur de moyennes du **BUT Informatique de l'IUT de Metz** : il calcule les
 
 HTML, CSS et JavaScript sans framework. Une seule dépendance : [pdf.js](https://mozilla.github.io/pdf.js/), servie par le site lui-même.
 
-![Capture d'écran : semestre 3 en parcours DACS, avec la moyenne de chaque UE et de ses deux pôles à gauche, et les notes saisies à droite (notes inventées)](docs/capture-resultats.png)
+![Capture d'écran : semestre 5 en parcours DACS, avec les six semestres en onglets, la moyenne de chaque UE et de ses deux pôles à gauche, et les notes à droite (notes inventées)](docs/capture-resultats.png)
 
 ### Pourquoi ce projet
 
@@ -45,7 +45,7 @@ C'est aussi un exercice de sécurité : l'outil manipule des **données personne
 - **Calculé et officiel côte à côte** quand le relevé donne la moyenne officielle, avec les écarts signalés.
 - **Note à viser** pour une évaluation pas encore passée : la note minimale pour que l'UE atteigne 10 (ou une autre cible). L'outil indique aussi quand la cible est déjà atteinte, ou impossible même avec 20.
 
-![Capture d'écran : note à viser pour un partiel pas encore noté, avec une cible de 13 : 13,25 dans une UE, 17,75 dans une autre, et une UE hors d'atteinte même avec 20 (notes inventées)](docs/capture-note-a-viser.png)
+![Capture d'écran : note à viser pour un examen pas encore noté, avec une cible de 13 : 10,55 dans une UE, cible déjà atteinte dans une autre (notes inventées)](docs/capture-note-a-viser.png)
 
 > **Les résultats sont indicatifs.** Seul le relevé officiel fait foi. L'outil n'affiche aucun verdict (« admis », « ajourné ») : les règles de compensation ne sont pas encore intégrées.
 
@@ -55,8 +55,11 @@ Les règles de calcul ont été établies à partir des vrais documents de l'IUT
 
 #### Interface
 
-- En français, utilisable sur téléphone.
-- Navigation au clavier, libellés pour les lecteurs d'écran, contraste vérifié.
+- En français, utilisable sur téléphone (de 320 px à 1920 px, portrait et paysage, sans défilement horizontal).
+- Navigation au clavier, libellés pour les lecteurs d'écran, contrastes WCAG 2.2 AA, cibles tactiles de 44 px.
+- Même identité visuelle que mon portfolio ([ange-bonkoski.fr](https://ange-bonkoski.fr)) et que net-toolkit, « le fil » : papier `#ECEDE8`, encre `#15181B`, un seul accent (l'orange du câble réseau, `#EE4F1A`), Newsreader pour les titres et les moyennes, Instrument Sans pour l'interface, IBM Plex Mono pour les notes et les coefficients.
+- Les six semestres sont les ports d'un panneau de brassage (voyant orange sur le semestre affiché) ; le bilan des compétences de l'année est le seul panneau sombre de la page.
+- Animations en CSS uniquement, coupées si le système demande « moins de mouvement ». Tout est servi par le site, y compris le grain de papier (`css/grain.svg`) : la CSP n'a pas changé.
 
 ### Données personnelles
 
@@ -104,7 +107,7 @@ Voir [CONTRIBUTING.md](CONTRIBUTING.md), notamment la procédure quand Dependabo
 
 ### Licence
 
-Code distribué sous licence MIT : voir [LICENSE](LICENSE). pdf.js est distribué sous licence Apache 2.0 ([vendor/pdfjs/LICENSE](vendor/pdfjs/LICENSE)), la police Instrument Sans sous SIL Open Font License 1.1.
+Code distribué sous licence MIT : voir [LICENSE](LICENSE). pdf.js est distribué sous licence Apache 2.0 ([vendor/pdfjs/LICENSE](vendor/pdfjs/LICENSE)), les polices Newsreader, Instrument Sans et IBM Plex Mono sous SIL Open Font License 1.1 ([fonts/README.md](fonts/README.md)).
 
 Outil personnel et non officiel, sans lien avec l'IUT de Metz ni l'Université de Lorraine.
 

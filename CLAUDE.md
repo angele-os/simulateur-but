@@ -48,7 +48,8 @@ La description précise de ces PDF et les règles de calcul vérifiées sont dan
 - pdf.js est utilisé avec `isEvalSupported: false`. On impose aussi des limites de taille et de nombre de pages.
 
 ## Interface
-- Reprends l'identité visuelle de mon portfolio, comme dans net-toolkit : « ardoise et brume » (fond brume, encre, accent bleu pétrole), police Instrument Sans, effet verre. Reprends ses variables CSS.
+- Reprends l'identité visuelle de mon portfolio, comme dans net-toolkit : « le fil » (papier `#ECEDE8`, feuille `#FAFAF7`, encre `#15181B`, un seul accent : l'orange du câble `#EE4F1A`, assombri en `#A5360B` pour le texte). Polices locales : Newsreader (titres, moyennes), Instrument Sans (interface), IBM Plex Mono (notes, coefficients). Reprends les variables de `css/style.css`.
+- Animations en CSS uniquement, discrètes, et toujours coupées par `prefers-reduced-motion`. Aucune image `data:` ni style en ligne : la CSP ne change pas.
 - Tout est en français.
 - L'app doit être utilisable sur téléphone, et accessible : labels, navigation au clavier, contraste suffisant.
 
